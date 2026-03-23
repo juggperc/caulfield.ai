@@ -20,6 +20,7 @@ const collectAllChunks = (
   notes: Note[],
   research: ResearchSnippet[],
   memory: MemoryEntry[],
+  options: { readonly includeResearch: boolean; readonly includeMemory: boolean },
 ): RagChunk[] => {
   const out: RagChunk[] = [];
 
@@ -31,21 +32,27 @@ const collectAllChunks = (
     });
   }
 
-  for (const s of research) {
-    const head = `[research:${s.sourceType}] **${s.title}** (id: \`${s.id}\`) — ${s.sourceUrl}`;
-    const full = `Topic: ${s.topic}\n${s.body}`.trim();
-    let start = 0;
-    let idx = 0;
-    while (start < full.length && out.length < MAX_CHUNKS_TOTAL) {
-      const end = Math.min(start + CHUNK_SIZE, full.length);
-      out.push({
-        label: `${head} (chunk ${idx})`,
-        text: full.slice(start, end),
-      });
-      idx += 1;
-      if (end === full.length) break;
-      start = Math.max(0, end - CHUNK_OVERLAP);
+  if (options.includeResearch) {
+    for (const s of research) {
+      const head = `[research:${s.sourceType}] **${s.title}** (id: \`${s.id}\`) — ${s.sourceUrl}`;
+      const full = `Topic: ${s.topic}\n${s.body}`.trim();
+      let start = 0;
+      let idx = 0;
+      while (start < full.length && out.length < MAX_CHUNKS_TOTAL) {
+        const end = Math.min(start + CHUNK_SIZE, full.length);
+        out.push({
+          label: `${head} (chunk ${idx})`,
+          text: full.slice(start, end),
+        });
+        idx += 1;
+        if (end === full.length) break;
+        start = Math.max(0, end - CHUNK_OVERLAP);
+      }
     }
+  }
+
+  if (!options.includeMemory) {
+    return out;
   }
 
   for (const m of memory) {
@@ -77,14 +84,22 @@ export const buildUnifiedRagContextBlock = async (params: {
   readonly notes: Note[];
   readonly researchSnippets: ResearchSnippet[];
   readonly memoryEntries: MemoryEntry[];
+  /** When false, research snippets are omitted from embedding retrieval only. */
+  readonly ragIncludeResearch?: boolean;
+  /** When false, memory entries are omitted from embedding retrieval only. */
+  readonly ragIncludeMemory?: boolean;
 }): Promise<string> => {
   const q = params.userQuery.trim();
   if (!q) return "";
+
+  const includeResearch = params.ragIncludeResearch !== false;
+  const includeMemory = params.ragIncludeMemory !== false;
 
   const chunks = collectAllChunks(
     params.notes,
     params.researchSnippets,
     params.memoryEntries,
+    { includeResearch, includeMemory },
   );
   if (chunks.length === 0) return "";
 

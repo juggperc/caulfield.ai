@@ -10,6 +10,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart } from "ai";
 import { useMemo } from "react";
 import {
+  readChatRagMemoryEnabled,
+  readChatRagResearchEnabled,
   readOpenRouterEmbeddingModel,
   readOpenRouterKey,
   readOpenRouterModel,
@@ -34,6 +36,8 @@ export const useDocsAgentChat = (options?: UseDocsAgentChatOptions) => {
           notes: getNotesSnapshot(),
           researchSnippets: getResearchSnapshot(),
           memory: getMemorySnapshot(),
+          ragIncludeMemory: readChatRagMemoryEnabled(),
+          ragIncludeResearch: readChatRagResearchEnabled(),
           ...getDocsChatBodyFields(),
         }),
       }),

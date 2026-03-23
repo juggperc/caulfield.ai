@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/popover";
 import {
   STORAGE_KEYS,
+  readChatRagMemoryEnabled,
+  readChatRagResearchEnabled,
   readOpenRouterEmbeddingModel,
   readOpenRouterKey,
   readOpenRouterModel,
@@ -28,6 +30,8 @@ export const SettingsPopover = () => {
   const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
+  const [ragMemoryOn, setRagMemoryOn] = useState(true);
+  const [ragResearchOn, setRagResearchOn] = useState(true);
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
@@ -61,7 +65,47 @@ export const SettingsPopover = () => {
       setApiKey(readOpenRouterKey());
       setModelId(readOpenRouterModel());
       setEmbeddingModel(readOpenRouterEmbeddingModel());
+      setRagMemoryOn(readChatRagMemoryEnabled());
+      setRagResearchOn(readChatRagResearchEnabled());
     }
+  };
+
+  const handleRagMemoryToggle = () => {
+    const next = !ragMemoryOn;
+    setRagMemoryOn(next);
+    if (typeof window === "undefined") return;
+    if (next) {
+      localStorage.removeItem(STORAGE_KEYS.chatRagMemoryEnabled);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.chatRagMemoryEnabled, "0");
+    }
+  };
+
+  const handleRagResearchToggle = () => {
+    const next = !ragResearchOn;
+    setRagResearchOn(next);
+    if (typeof window === "undefined") return;
+    if (next) {
+      localStorage.removeItem(STORAGE_KEYS.chatRagResearchEnabled);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.chatRagResearchEnabled, "0");
+    }
+  };
+
+  const handleRagMemoryKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handleRagMemoryToggle();
+  };
+
+  const handleRagResearchKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handleRagResearchToggle();
   };
 
   return (
@@ -134,6 +178,81 @@ export const SettingsPopover = () => {
               Used to retrieve relevant note excerpts for chat. Must be an
               OpenRouter embedding model id.
             </p>
+          </div>
+          <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+            <p className="text-xs font-medium text-foreground">Chat context</p>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              These toggles affect <strong className="font-medium">semantic RAG</strong>{" "}
+              only. Full memory and research data are still sent so{" "}
+              <code className="rounded bg-muted px-1 font-mono text-[10px]">
+                memory_*
+              </code>{" "}
+              tools work; turn off here to omit a source from retrieved excerpts.
+            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Label
+                  htmlFor="rag-memory-switch"
+                  className="text-xs text-muted-foreground"
+                >
+                  Include memory in RAG
+                </Label>
+              </div>
+              <button
+                type="button"
+                id="rag-memory-switch"
+                role="switch"
+                aria-checked={ragMemoryOn}
+                aria-label="Include memory in semantic RAG"
+                tabIndex={0}
+                onClick={handleRagMemoryToggle}
+                onKeyDown={handleRagMemoryKeyDown}
+                className={cn(
+                  "relative inline-flex h-7 w-11 shrink-0 cursor-pointer rounded-full border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  ragMemoryOn ? "bg-primary" : "bg-background",
+                )}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none absolute top-0.5 left-0.5 block size-6 rounded-full bg-card shadow transition-transform",
+                    ragMemoryOn ? "translate-x-[1.125rem]" : "translate-x-0",
+                  )}
+                  aria-hidden
+                />
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Label
+                  htmlFor="rag-research-switch"
+                  className="text-xs text-muted-foreground"
+                >
+                  Include research in RAG
+                </Label>
+              </div>
+              <button
+                type="button"
+                id="rag-research-switch"
+                role="switch"
+                aria-checked={ragResearchOn}
+                aria-label="Include Deep Research snippets in semantic RAG"
+                tabIndex={0}
+                onClick={handleRagResearchToggle}
+                onKeyDown={handleRagResearchKeyDown}
+                className={cn(
+                  "relative inline-flex h-7 w-11 shrink-0 cursor-pointer rounded-full border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  ragResearchOn ? "bg-primary" : "bg-background",
+                )}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none absolute top-0.5 left-0.5 block size-6 rounded-full bg-card shadow transition-transform",
+                    ragResearchOn ? "translate-x-[1.125rem]" : "translate-x-0",
+                  )}
+                  aria-hidden
+                />
+              </button>
+            </div>
           </div>
         </div>
       </PopoverContent>

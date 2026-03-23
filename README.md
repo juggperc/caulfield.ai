@@ -58,13 +58,13 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 
 ### Deep Research
 
-- Dedicated tab runs a **multi-step research agent** (`generateText` + tools, `stopWhen` step budget) with **Wikipedia**, **arXiv**, and **chunked public web fetch** (`/api/research`).
-- The agent saves **cited snippets**; they persist in the browser and are **embedded into chat context** alongside notes and memory.
+- Open **Deep Research** from the **chat bar** (microscope icon) or run it inline in a modal. It uses a **multi-step research agent** (`generateText` + tools, `stopWhen` step budget) with **Wikipedia**, **arXiv**, and **chunked public web fetch** (`/api/research`).
+- The agent saves **cited snippets**; they persist in the browser and can be **included in chat semantic RAG** alongside notes and memory (toggle in **chat settings**).
 
 ### Memory
 
-- **Memory** tab for durable facts and preferences; the chat agent has **`memory_*` tools** (list/read/search/create/update/delete) and changes **sync back** to the UI like notes.
-- Memory entries participate in the **same RAG pipeline** as notes and research.
+- Open **Memory** from the **chat bar** (brain icon) to edit durable facts and preferences. The chat agent has **`memory_*` tools** (list/read/search/create/update/delete) and changes **sync back** to the UI like notes.
+- Memory can participate in the **same RAG pipeline** as notes and research; use **chat settings** to turn memory or research **off for RAG only** (tools still receive the full lists).
 
 ### Accounts & chat history (scaffold)
 
@@ -116,13 +116,19 @@ npm run start
 
 ## Configuration
 
-There is **no `.env` file required** for local development. In the app:
+Copy **[`.env.example`](./.env.example)** to **`.env.local`** (gitignored) for **auth, database, hosted OpenRouter, and Polar**. See variable comments there.
 
-1. Open **Settings** (gear in the chat input area).
-2. Add your **OpenRouter API key** and **model ID** (and optional **embedding model** for **unified RAG**: notes + research + memory).
-3. In **Marketplace**, enable connectors and paste vendor keys as needed.
+### Hosted mode (recommended for production)
 
-Keys are stored in **browser localStorage** on your machine. For a team deployment, consider a small proxy or server-side key management — this repo’s default is client-origin requests to OpenRouter from **`/api/chat`** and **`/api/research`** using headers the client sends.
+When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** (GitHub or Google OAuth, or **`AUTH_DEV_LOGIN=1`** for local dev). **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
+
+1. Run **`npm run db:push`** against your Postgres after setting `DATABASE_URL`.
+2. Set **`AUTH_SECRET`**, OAuth client IDs/secrets, and deploy **`/api/webhooks/polar`** URL in Polar (optional **`POLAR_WEBHOOK_SECRET`** — verify Polar’s signature format; adjust [`src/app/api/webhooks/polar/route.ts`](src/app/api/webhooks/polar/route.ts) if needed).
+3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; checkout appends **`metadata[userId]`** for the webhook to attach subscriptions to users.
+
+### BYO OpenRouter (no server key)
+
+If **`OPENROUTER_API_KEY`** is unset, behavior matches the original app: open **Settings** in chat, add **OpenRouter API key** and **model ID** (and optional **embedding model** for RAG). Keys stay in **localStorage**. Use **Marketplace** for optional connectors.
 
 ---
 
@@ -134,6 +140,8 @@ Keys are stored in **browser localStorage** on your machine. For a team deployme
 | `npm run build` | Production build |
 | `npm run start` | Run production server |
 | `npm run lint` | ESLint |
+| `npm run db:push` | Apply Drizzle schema to Postgres (`DATABASE_URL`) |
+| `npm run db:studio` | Open Drizzle Studio |
 
 ---
 
@@ -143,8 +151,13 @@ Keys are stored in **browser localStorage** on your machine. For a team deployme
 src/
 ├── app/                 # App Router — page, layout, globals, API routes
 │   └── api/
+│       ├── auth/        # NextAuth / Auth.js
+│       ├── billing/     # Quota + Polar checkout redirect
 │       ├── chat/        # Streaming chat + tools (OpenRouter)
-│       └── research/    # Deep Research agent (non-streaming JSON)
+│       ├── config/      # Public flags (hosted mode, defaults)
+│       ├── conversations/# Server-backed chat history (Postgres)
+│       ├── research/    # Deep Research agent (non-streaming JSON)
+│       └── webhooks/    # Polar (subscription sync)
 ├── components/          # Shared UI (theme, dictation, shadcn-style primitives)
 ├── features/            # Domain: chat-ui, notes, documents, library, marketplace, shell, …
 ├── hooks/               # e.g. speech dictation
@@ -155,7 +168,7 @@ src/
 
 ## Deploying
 
-Compatible with **[Vercel](https://vercel.com/)** and any Node host that supports Next.js. Set nothing in env for the default flow; ensure your deployment allows **`/api/chat`** and **`/api/research`** and that users still configure keys in the UI (or move keys server-side for production hardening).
+Compatible with **[Vercel](https://vercel.com/)** and any Node host that supports Next.js. For **hosted** AI, set env vars from **`.env.example`**, add **`DATABASE_URL`**, and run **`npm run db:push`**. For **BYO** keys only, you can deploy without DB or server OpenRouter.
 
 **Maintainer habit:** after substantive changes, update this README and push to **`main`** on GitHub when applicable.
 

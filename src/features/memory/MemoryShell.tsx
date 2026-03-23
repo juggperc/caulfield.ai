@@ -2,10 +2,15 @@
 
 import { useMemory } from "@/features/memory/memory-provider";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
+import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
-export const MemoryShell = () => {
+type MemoryShellProps = {
+  readonly embedded?: boolean;
+};
+
+export const MemoryShell = ({ embedded = false }: MemoryShellProps) => {
   const { entries, upsertEntry, removeEntry } = useMemory();
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
@@ -74,10 +79,22 @@ export const MemoryShell = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-muted">
-      <WorkspacePanelHeader title="Memory" />
+    <div
+      className={cn(
+        "flex flex-col bg-muted",
+        embedded ? "min-h-0" : "min-h-0 flex-1",
+      )}
+    >
+      {embedded ? null : <WorkspacePanelHeader title="Memory" />}
 
-      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:p-5",
+          embedded
+            ? "min-h-0"
+            : "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+        )}
+      >
         <p className="text-sm text-muted-foreground">
           Long-lived facts and preferences. The chat agent can write here with
           tools; entries are retrieved via RAG. Storage is scoped per account when

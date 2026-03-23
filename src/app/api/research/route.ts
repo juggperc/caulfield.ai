@@ -1,3 +1,6 @@
+import { auth } from "@/auth";
+import { checkChatQuota, consumeChatQuery } from "@/lib/billing/quota";
+import { isDbConfigured } from "@/lib/db";
 import { createResearchAgentTools } from "@/features/research/research-agent-tools";
 import type { ResearchSnippet } from "@/features/research/research-types";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -11,17 +14,43 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const apiKey = req.headers.get("x-openrouter-key")?.trim();
-  const modelId = req.headers.get("x-openrouter-model")?.trim();
+  const session = await auth();
+  const serverKey = process.env.OPENROUTER_API_KEY?.trim();
+  const headerKey = req.headers.get("x-openrouter-key")?.trim();
+  const headerModel = req.headers.get("x-openrouter-model")?.trim();
+  const hosted = Boolean(serverKey);
+  const defaultModel =
+    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "x-ai/grok-3-fast";
+
+  const apiKey = hosted ? serverKey : headerKey;
+  const modelId = hosted ? headerModel || defaultModel : headerModel;
 
   if (!apiKey || !modelId) {
     return Response.json(
       {
-        error:
-          "Missing OpenRouter API key or model. Configure them in settings.",
+        error: hosted
+          ? "Server OpenRouter is not configured."
+          : "Missing OpenRouter API key or model. Configure them in settings.",
       },
       { status: 400 },
     );
+  }
+
+  const quotaEnforced = hosted && isDbConfigured();
+  if (quotaEnforced) {
+    if (!session?.user?.id) {
+      return Response.json(
+        { error: "Sign in to use hosted AI.", code: "UNAUTHORIZED" },
+        { status: 401 },
+      );
+    }
+    const qc = await checkChatQuota(session.user.id);
+    if (!qc.ok) {
+      return Response.json(
+        { error: qc.message, code: "QUOTA_EXCEEDED" },
+        { status: 402 },
+      );
+    }
   }
 
   let json: unknown;
@@ -60,6 +89,9 @@ Rules:
   const prompt = `Research topic:\n"""${topic}"""\n\nGather sources, save snippets with research_save_snippet, then summarize key takeaways for the user.`;
 
   try {
+    if (quotaEnforced && session?.user?.id) {
+      await consumeChatQuery(session.user.id);
+    }
     const openrouter = createOpenRouter({ apiKey });
     const { text } = await generateText({
       model: openrouter(modelId),

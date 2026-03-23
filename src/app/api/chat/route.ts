@@ -19,6 +19,9 @@ import type { MemoryEntry } from "@/features/memory/memory-types";
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/notes/constants";
 import type { Note } from "@/features/notes/types";
 import type { ResearchSnippet } from "@/features/research/research-types";
+import { auth } from "@/auth";
+import { checkChatQuota, consumeChatQuery } from "@/lib/billing/quota";
+import { isDbConfigured } from "@/lib/db";
 import { buildUnifiedRagContextBlock } from "@/lib/unified-rag-context";
 import { getLatestUserTextFromUiMessages } from "@/features/ai-agent/last-user-message";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -129,6 +132,10 @@ const ChatBodySchema = z.object({
       githubToken: z.string().max(4000).optional(),
     })
     .optional(),
+  /** When false, memory is excluded from unified RAG only; full memory is still on the request for tools. */
+  ragIncludeMemory: z.boolean().optional().default(true),
+  /** When false, research snippets are excluded from unified RAG only. */
+  ragIncludeResearch: z.boolean().optional().default(true),
 });
 
 const truncate = (s: string, max: number) => {
@@ -136,18 +143,64 @@ const truncate = (s: string, max: number) => {
   return `${s.slice(0, max)}\n\n…(truncated)`;
 };
 
+const ragRetrievedHeading = (
+  ragIncludeMemory: boolean,
+  ragIncludeResearch: boolean,
+) => {
+  const parts: string[] = ["notes"];
+  if (ragIncludeResearch) parts.push("research");
+  if (ragIncludeMemory) parts.push("memory");
+  return `## Retrieved context (${parts.join(", ")})`;
+};
+
+const ragBehaviorClause = (
+  ragIncludeMemory: boolean,
+  ragIncludeResearch: boolean,
+) => {
+  const chunks: string[] = ["**notes**"];
+  if (ragIncludeResearch) {
+    chunks.push("**Deep Research** snippets (from the chat research tool)");
+  }
+  if (ragIncludeMemory) chunks.push("**memory**");
+  const list =
+    chunks.length === 1
+      ? chunks[0]!
+      : chunks.length === 2
+        ? `${chunks[0]} and ${chunks[1]}`
+        : `${chunks.slice(0, -1).join(", ")}, and ${chunks[chunks.length - 1]}`;
+  let s = `- Retrieved excerpts below combine **semantic RAG** over ${list}. They may be incomplete; tools are authoritative for full text.`;
+  if (!ragIncludeMemory) {
+    s +=
+      " Memory excluded from RAG still appears in \`memory_*\` tools (full list).";
+  }
+  return s;
+};
+
 export async function POST(req: Request) {
-  const apiKey = req.headers.get("x-openrouter-key")?.trim();
-  const modelId = req.headers.get("x-openrouter-model")?.trim();
-  const embeddingModel =
-    req.headers.get("x-openrouter-embedding-model")?.trim() ||
+  const session = await auth();
+  const serverKey = process.env.OPENROUTER_API_KEY?.trim();
+  const headerKey = req.headers.get("x-openrouter-key")?.trim();
+  const headerModel = req.headers.get("x-openrouter-model")?.trim();
+  const headerEmbed = req.headers.get("x-openrouter-embedding-model")?.trim();
+
+  const hosted = Boolean(serverKey);
+  const defaultHostedModel =
+    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "x-ai/grok-3-fast";
+  const defaultHostedEmbed =
+    process.env.OPENROUTER_DEFAULT_EMBEDDING_MODEL?.trim() ||
     DEFAULT_EMBEDDING_MODEL;
+
+  const apiKey = hosted ? serverKey : headerKey;
+  const modelId = hosted ? headerModel || defaultHostedModel : headerModel;
+  const embeddingModel =
+    headerEmbed || (hosted ? defaultHostedEmbed : DEFAULT_EMBEDDING_MODEL);
 
   if (!apiKey || !modelId) {
     return new Response(
       JSON.stringify({
-        error:
-          "Missing OpenRouter API key or model ID. Open settings and save your credentials.",
+        error: hosted
+          ? "Server OpenRouter is not configured."
+          : "Missing OpenRouter API key or model ID. Open settings and save your credentials.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
@@ -184,12 +237,37 @@ export async function POST(req: Request) {
     documentPlainText,
     docSelection,
     integrationKeys,
+    ragIncludeMemory,
+    ragIncludeResearch,
   } = parsed.data;
   if (!rawMessages.length) {
     return new Response(JSON.stringify({ error: "No messages provided" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const quotaEnforced = hosted && isDbConfigured();
+  if (quotaEnforced) {
+    if (!session?.user?.id) {
+      return new Response(
+        JSON.stringify({
+          error: "Sign in to use hosted AI and billing.",
+          code: "UNAUTHORIZED",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    const qc = await checkChatQuota(session.user.id);
+    if (!qc.ok) {
+      return new Response(
+        JSON.stringify({
+          error: qc.message,
+          code: "QUOTA_EXCEEDED",
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
   }
 
   const uiMessages = rawMessages as UIMessage[];
@@ -291,6 +369,8 @@ export async function POST(req: Request) {
       notes: requestNotes as Note[],
       researchSnippets: requestResearchSnippets as ResearchSnippet[],
       memoryEntries: requestMemoryEntries as MemoryEntry[],
+      ragIncludeMemory,
+      ragIncludeResearch,
     });
   } catch {
     ragBlock = "";
@@ -310,6 +390,15 @@ No live web search tools are available. If the user asks for **breaking news**, 
 When the user asks for breaking news, to **search the web**, or other **live / fresh public** information: call \`native_web_lookup\` and/or \`exa_search\` **before** answering from memory alone—use whichever tool fits (Exa for broad search when enabled; \`native_web_lookup\` for quick facts and Wikipedia-backed topics). Synthesize from tool output. **Do not** claim you cannot access the public web while these tools are available.`
     : "";
 
+  const retrievedHeading = ragRetrievedHeading(
+    ragIncludeMemory,
+    ragIncludeResearch,
+  );
+  const ragBehaviorLine = ragBehaviorClause(
+    ragIncludeMemory,
+    ragIncludeResearch,
+  );
+
   const chatSystem = `You are Caulfield.ai — a capable assistant with **full access** to the user's **notes** and **memory** through tools.
 
 Behavior:
@@ -317,7 +406,7 @@ Behavior:
 - Use \`memory_*\` tools to persist durable facts, preferences, or summaries the user (or you) would want recalled later; prefer \`memory_create\` when the user explicitly asks to remember something important.
 - After mutating notes or memory, briefly confirm what changed (titles and ids when useful).
 - Prefer \`notes_list\`, \`notes_search\`, \`notes_read\`, \`memory_list\`, \`memory_search\`, or \`memory_read\` instead of guessing when the user refers to stored content.
-- Retrieved excerpts below combine **semantic RAG** over notes, **Deep Research** snippets (from the Research tab), and **memory**. They may be incomplete; tools are authoritative for full text.
+${ragBehaviorLine}
 
 ${docCreationInstructions}
 
@@ -388,7 +477,7 @@ ${
     : ""
 }
 
-## Retrieved context (notes, research, memory)
+${retrievedHeading}
 ${ragBlock || "_No excerpts (empty library or retrieval skipped)._"}`;
 
   let docsSystem = `You are Caulfield.ai — a **document editor** for the Docs workspace.
@@ -416,7 +505,7 @@ ${webHarnessOff}
 
 ${webHarnessOn}
 
-## Retrieved context (notes, research, memory)
+${retrievedHeading}
 ${ragBlock || "_No excerpts._"}`;
 
   if (isDocsMode && activeDocument) {
@@ -485,6 +574,10 @@ ${truncate(preview, 14_000)}`;
       }),
       { tools },
     );
+
+    if (quotaEnforced && session?.user?.id) {
+      await consumeChatQuery(session.user.id);
+    }
 
     const result = streamText({
       model: openrouter(modelId),

@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ChatResearchMemoryDialogs } from "./ChatResearchMemoryDialogs";
 import { SettingsPopover } from "./SettingsPopover";
 import { ToolPalette } from "./ToolPalette";
 
@@ -112,6 +113,7 @@ export const ChatInputBar = ({
               ariaLabelIdle="Dictate message"
               ariaLabelActive="Stop dictation"
             />
+            <ChatResearchMemoryDialogs />
             <SettingsPopover />
             <Button
               type="submit"

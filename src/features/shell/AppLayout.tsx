@@ -11,11 +11,9 @@ import { LibraryProvider } from "@/features/library/library-context";
 import { LibraryShell } from "@/features/library/LibraryShell";
 import { MarketplaceShell } from "@/features/marketplace/MarketplaceShell";
 import { MemoryProvider } from "@/features/memory/memory-provider";
-import { MemoryShell } from "@/features/memory/MemoryShell";
 import { NotesProvider } from "@/features/notes/notes-context";
 import { NotesShell } from "@/features/notes/NotesShell";
 import { ResearchProvider } from "@/features/research/research-provider";
-import { ResearchShell } from "@/features/research/ResearchShell";
 import {
   MAIN_OFFSET_CLASS,
   Sidebar,
@@ -53,10 +51,6 @@ export const AppLayout = () => {
                           <DocsShell />
                         ) : panel === "library" ? (
                           <LibraryShell />
-                        ) : panel === "research" ? (
-                          <ResearchShell />
-                        ) : panel === "memory" ? (
-                          <MemoryShell />
                         ) : (
                           <MarketplaceShell />
                         )}

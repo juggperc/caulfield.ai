@@ -1,13 +1,14 @@
 "use client";
 
+import { setAccountSessionUserId } from "@/features/auth/storage-scope";
 import {
-  createContext,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react";
+  SessionProvider as NextAuthSessionProvider,
+  signIn,
+  signOut,
+  useSession as useNextAuthSession,
+} from "next-auth/react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
-/** Placeholder until Vercel Auth / Auth.js is configured. */
 export type SessionUser = {
   readonly id: string;
   readonly email: string | null;
@@ -22,23 +23,45 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
-  const value = useMemo<SessionContextValue>(
-    () => ({
-      user: null,
-      status: "unauthenticated",
-      signIn: () => {
-        /* TODO: Vercel Auth signIn redirect */
-      },
-      signOut: () => {
-        /* TODO: Vercel Auth signOut */
-      },
-    }),
-    [],
-  );
+const SessionBridge = ({ children }: { readonly children: ReactNode }) => {
+  const { data: session, status } = useNextAuthSession();
+
+  useEffect(() => {
+    const id = session?.user?.id?.trim();
+    setAccountSessionUserId(id && id.length > 0 ? id : null);
+  }, [session?.user?.id]);
+
+  const value: SessionContextValue = {
+    user: session?.user?.id
+      ? {
+          id: session.user.id,
+          email: session.user.email ?? null,
+        }
+      : null,
+    status:
+      status === "loading"
+        ? "loading"
+        : session?.user
+          ? "authenticated"
+          : "unauthenticated",
+    signIn: () => {
+      void signIn();
+    },
+    signOut: () => {
+      void signOut({ callbackUrl: "/" });
+    },
+  };
 
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
+};
+
+export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
+  return (
+    <NextAuthSessionProvider>
+      <SessionBridge>{children}</SessionBridge>
+    </NextAuthSessionProvider>
   );
 };
 

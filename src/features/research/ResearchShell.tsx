@@ -7,6 +7,7 @@ import {
   readOpenRouterModel,
 } from "@/features/ai-agent/storage";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
+import { cn } from "@/lib/utils";
 import { Loader2, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -19,7 +20,12 @@ type ApiOk = {
 
 type ApiErr = { error: string };
 
-export const ResearchShell = () => {
+type ResearchShellProps = {
+  /** When true, omit workspace header; parent supplies title (e.g. dialog). */
+  readonly embedded?: boolean;
+};
+
+export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
   const { snippets, addSnippets, removeSnippet, clearAll } = useResearch();
   const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,10 +78,22 @@ export const ResearchShell = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-muted">
-      <WorkspacePanelHeader title="Deep Research" />
+    <div
+      className={cn(
+        "flex flex-col bg-muted",
+        embedded ? "min-h-0" : "min-h-0 flex-1",
+      )}
+    >
+      {embedded ? null : <WorkspacePanelHeader title="Deep Research" />}
 
-      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 md:p-5",
+          embedded
+            ? "min-h-0"
+            : "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+        )}
+      >
         <p className="text-sm text-muted-foreground">
           Multi-step agent loop with Wikipedia, arXiv, and chunked web fetch.
           Saved snippets feed chat RAG alongside Notes and Memory.

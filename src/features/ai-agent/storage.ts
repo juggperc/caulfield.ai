@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   exaApiKey: "caulfield.connector.exa.apiKey",
   exaEnabled: "caulfield.connector.exa.enabled",
   nativeSearchEnabled: "caulfield.connector.nativeSearch.enabled",
+  chatRagMemoryEnabled: "caulfield.chat.rag.memory.enabled",
+  chatRagResearchEnabled: "caulfield.chat.rag.research.enabled",
   githubEnabled: "caulfield.connector.github.enabled",
   githubToken: "caulfield.connector.github.token",
 } as const;
@@ -58,4 +60,16 @@ export const readOpenRouterEmbeddingModel = (): string => {
     localStorage.getItem(STORAGE_KEYS.openRouterEmbeddingModel) ??
     DEFAULT_EMBEDDING_MODEL
   );
+};
+
+/** Default on when unset; only explicit `"0"` disables (same pattern as native search). */
+export const readChatRagMemoryEnabled = (): boolean => {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(STORAGE_KEYS.chatRagMemoryEnabled) !== "0";
+};
+
+/** Default on when unset; only explicit `"0"` disables. */
+export const readChatRagResearchEnabled = (): boolean => {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(STORAGE_KEYS.chatRagResearchEnabled) !== "0";
 };

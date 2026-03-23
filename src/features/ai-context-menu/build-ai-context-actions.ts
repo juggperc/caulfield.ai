@@ -94,12 +94,7 @@ export const buildAiContextActions = ({
       },
     );
 
-    if (
-      panel === "notes" ||
-      panel === "docs" ||
-      panel === "research" ||
-      panel === "memory"
-    ) {
+    if (panel === "notes" || panel === "docs") {
       actions.push({
         id: "continue",
         label: "Continue from selection",
