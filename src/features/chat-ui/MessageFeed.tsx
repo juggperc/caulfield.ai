@@ -52,7 +52,7 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
   return (
     <div
       ref={scrollRef}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 md:px-4"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 max-md:pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))] md:px-4"
       role="log"
       aria-live="polite"
       aria-relevant="additions"

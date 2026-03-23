@@ -7,6 +7,7 @@ import {
   peekPendingChatInput,
 } from "@/features/ai-context-menu/ai-pending-prompts";
 import type { ChatStatus } from "ai";
+import { cn } from "@/lib/utils";
 import { ArrowUp } from "lucide-react";
 import {
   useCallback,
@@ -85,7 +86,15 @@ export const ChatInputBar = ({
   }, []);
 
   return (
-    <div className="shrink-0 border-t border-border bg-background/95 px-3 pt-2 backdrop-blur-sm max-md:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:pb-3">
+    <div
+      className={cn(
+        "shrink-0 border-t border-border bg-background/95 px-3 pt-2 backdrop-blur-md",
+        "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20",
+        "max-md:border-border max-md:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] max-md:pt-2 max-md:shadow-[0_-10px_40px_-12px_rgba(0,0,0,0.12)]",
+        "dark:max-md:shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.45)]",
+        "md:relative md:z-auto md:pb-3 md:shadow-none",
+      )}
+    >
       <form
         onSubmit={handleSubmit}
         className="mx-auto max-w-3xl rounded-xl border border-border bg-card shadow-sm"
