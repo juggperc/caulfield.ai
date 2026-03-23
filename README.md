@@ -69,7 +69,7 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 ### Accounts & chat history
 
 - **`SessionProvider`** (`src/features/auth/session-context.tsx`) — **NextAuth (Auth.js)** session for the client; sign-in/out from the sidebar.
-- **Sign-in:** **Username and password** with **ALTCHA** proof-of-work (`/api/altcha/challenge`, `/api/auth/register`). OAuth (GitHub/Google) is not used.
+- **Sign-in:** **Username and password** with **ALTCHA** proof-of-work (`/api/altcha/challenge`, `/api/auth/register`). OAuth (GitHub/Google) is not used. Auth.js uses **JWT sessions** for credentials (required by the library); user rows still live in Postgres. On **Vercel**, set **`AUTH_URL`** to your deployment URL (e.g. `https://your-project.vercel.app`) so cookies and auth routes resolve correctly.
 - **`getAccountStorageScope()`** (`src/features/auth/storage-scope.ts`) — namespaces **localStorage** keys (`anon` until sign-in).
 - **Server history:** With **`DATABASE_URL`** set, **`ChatShell`** loads the signed-in user’s conversations after auth resolves (including **sign-in after the first paint**), persists messages to **`/api/conversations/...`**, and enforces **quota** on **`/api/chat`** when **`OPENROUTER_API_KEY`** is set.
 

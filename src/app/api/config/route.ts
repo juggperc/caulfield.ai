@@ -16,6 +16,8 @@ const isCredentialAuthConfigured = (): boolean => {
 export const GET = () => {
   const openRouterConfigured = Boolean(process.env.OPENROUTER_API_KEY?.trim());
   const credentialAuthConfigured = isCredentialAuthConfigured();
+  const databaseConfigured = isDatabaseUrlConfigured();
+
   return NextResponse.json({
     openRouterConfigured,
     /** @deprecated Use openRouterConfigured */
@@ -33,6 +35,6 @@ export const GET = () => {
     /** @deprecated Use credentialAuthConfigured */
     authProvidersConfigured: credentialAuthConfigured,
     altchaDevBypass: isDev && process.env.ALTCHA_DEV_BYPASS === "1",
-    databaseConfigured: isDatabaseUrlConfigured(),
+    databaseConfigured,
   });
 };

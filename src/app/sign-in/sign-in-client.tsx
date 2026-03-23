@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useSession } from "@/features/auth/session-context";
 import { Logo } from "@/features/sidebar/components/Logo";
 import { cn } from "@/lib/utils";
-import { getProviders, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -65,14 +65,27 @@ export const SignInClient = () => {
     let cancelled = false;
     void (async () => {
       try {
-        const p = await getProviders();
-        if (cancelled || !p) {
-          if (!cancelled) setProviderIds([]);
+        const res = await fetch("/api/auth/providers", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          setProviderIds([]);
+          setLoadError("Could not load sign-in options.");
+          return;
+        }
+        const p = (await res.json()) as Record<string, unknown> | null;
+        if (!p || typeof p !== "object") {
+          setProviderIds([]);
           return;
         }
         setProviderIds(Object.keys(p));
       } catch {
-        if (!cancelled) setLoadError("Could not load sign-in options.");
+        if (!cancelled) {
+          setLoadError("Could not load sign-in options.");
+          setProviderIds([]);
+        }
       }
     })();
     return () => {

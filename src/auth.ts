@@ -175,7 +175,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         authenticatorsTable: schema.authenticators,
       })
     : undefined,
-  session: db ? { strategy: "database" } : { strategy: "jwt" },
+  // Credentials sign-in is only allowed with JWT sessions (not database sessions).
+  // See https://errors.authjs.dev#unsupportedstrategy — user rows still live in Postgres via the adapter.
+  session: { strategy: "jwt" },
   secret: authSecret,
   trustHost: true,
   pages: {

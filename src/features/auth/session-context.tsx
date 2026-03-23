@@ -90,7 +90,7 @@ const SessionBridge = ({ children }: { readonly children: ReactNode }) => {
 
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
   return (
-    <NextAuthSessionProvider refetchOnWindowFocus>
+    <NextAuthSessionProvider refetchOnWindowFocus basePath="/api/auth">
       <SessionBridge>{children}</SessionBridge>
     </NextAuthSessionProvider>
   );
