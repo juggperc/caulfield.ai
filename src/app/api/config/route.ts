@@ -2,9 +2,20 @@ import { isDatabaseUrlConfigured } from "@/lib/db/database-url";
 import { getEmbeddingModelId, getThinkingModelId } from "@/lib/openrouter/server-models";
 import { NextResponse } from "next/server";
 
+const isDev = process.env.NODE_ENV === "development";
+
+const isCredentialAuthConfigured = (): boolean => {
+  const hasSecret = Boolean(process.env.AUTH_SECRET?.trim());
+  const dbOk = isDatabaseUrlConfigured();
+  const hasAltchaKey = Boolean(process.env.ALTCHA_HMAC_KEY?.trim());
+  const bypass = isDev && process.env.ALTCHA_DEV_BYPASS === "1";
+  return Boolean(hasSecret && dbOk && (hasAltchaKey || bypass));
+};
+
 /** Safe, non-secret flags for the client. */
 export const GET = () => {
   const openRouterConfigured = Boolean(process.env.OPENROUTER_API_KEY?.trim());
+  const credentialAuthConfigured = isCredentialAuthConfigured();
   return NextResponse.json({
     openRouterConfigured,
     /** @deprecated Use openRouterConfigured */
@@ -18,10 +29,10 @@ export const GET = () => {
     embeddingModelConfigured: Boolean(getEmbeddingModelId()),
     defaultModel: getThinkingModelId(),
     defaultEmbeddingModel: getEmbeddingModelId(),
-    authProvidersConfigured: Boolean(
-      (process.env.GITHUB_ID && process.env.GITHUB_SECRET) ||
-        (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-    ),
+    credentialAuthConfigured,
+    /** @deprecated Use credentialAuthConfigured */
+    authProvidersConfigured: credentialAuthConfigured,
+    altchaDevBypass: isDev && process.env.ALTCHA_DEV_BYPASS === "1",
     databaseConfigured: isDatabaseUrlConfigured(),
   });
 };

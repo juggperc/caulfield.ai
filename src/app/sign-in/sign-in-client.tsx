@@ -1,16 +1,32 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useSession } from "@/features/auth/session-context";
+import { cn } from "@/lib/utils";
 import { getProviders, signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 const safeCallbackUrl = (raw: string | null): string => {
   if (!raw || !raw.startsWith("/")) return "/";
   if (raw.startsWith("//")) return "/";
   return raw;
+};
+
+type AppConfigJson = {
+  credentialAuthConfigured?: boolean;
+  authProvidersConfigured?: boolean;
+  altchaDevBypass?: boolean;
+  databaseConfigured?: boolean;
 };
 
 export const SignInClient = () => {
@@ -19,9 +35,22 @@ export const SignInClient = () => {
   const { status } = useSession();
   const [providerIds, setProviderIds] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [credentialAuthConfigured, setCredentialAuthConfigured] = useState<
+    boolean | null
+  >(null);
+  const [altchaDevBypass, setAltchaDevBypass] = useState(false);
+
+  const [panel, setPanel] = useState<"signin" | "register">("signin");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [altchaPayload, setAltchaPayload] = useState<string | null>(null);
+  const [altchaKey, setAltchaKey] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [altchaScriptReady, setAltchaScriptReady] = useState(false);
+  const altchaHostRef = useRef<HTMLElement | null>(null);
 
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
-
   useEffect(() => {
     if (status === "authenticated") {
       router.replace(callbackUrl);
@@ -47,11 +76,188 @@ export const SignInClient = () => {
     };
   }, []);
 
-  const handleOAuthSignIn = useCallback(
-    (providerId: string) => {
-      void signIn(providerId, { callbackUrl });
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/config")
+      .then((r) => r.json())
+      .then((j: AppConfigJson) => {
+        if (cancelled) return;
+        const cred =
+          j.credentialAuthConfigured ?? j.authProvidersConfigured ?? false;
+        setCredentialAuthConfigured(Boolean(cred));
+        setAltchaDevBypass(Boolean(j.altchaDevBypass));
+      })
+      .catch(() => {
+        if (!cancelled) setCredentialAuthConfigured(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        await import("altcha");
+        if (!cancelled) setAltchaScriptReady(true);
+      } catch {
+        if (!cancelled) setLoadError("Could not load ALTCHA widget.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAltchaStateChange = useCallback((ev: Event) => {
+    const ce = ev as CustomEvent<{ state?: string; payload?: string }>;
+    const { state, payload } = ce.detail ?? {};
+    if (state === "verified" && typeof payload === "string" && payload) {
+      setAltchaPayload(payload);
+    }
+    if (state === "error" || state === "expired") {
+      setAltchaPayload(null);
+    }
+  }, []);
+
+  const resetAltcha = useCallback(() => {
+    setAltchaPayload(null);
+    setAltchaKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    setFormError(null);
+    resetAltcha();
+  }, [panel, resetAltcha]);
+
+  const hasCredentialsProvider = providerIds.includes("credentials");
+  const hasDevProvider = providerIds.includes("dev");
+  const requireAltcha = !altchaDevBypass;
+
+  const handleDevSignIn = useCallback(() => {
+    void signIn("dev", { callbackUrl, redirect: true });
+  }, [callbackUrl]);
+
+  useEffect(() => {
+    const el = altchaHostRef.current;
+    if (!el || altchaDevBypass || !altchaScriptReady) return;
+    el.addEventListener("statechange", handleAltchaStateChange);
+    return () => {
+      el.removeEventListener("statechange", handleAltchaStateChange);
+    };
+  }, [
+    altchaDevBypass,
+    altchaKey,
+    altchaScriptReady,
+    handleAltchaStateChange,
+  ]);
+
+  const handleSubmitSignIn = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setFormError(null);
+      if (!hasCredentialsProvider) {
+        setFormError("Username/password sign-in is not available.");
+        return;
+      }
+      if (requireAltcha && !altchaPayload) {
+        setFormError("Complete the verification challenge first.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const res = await signIn("credentials", {
+          username: username.trim(),
+          password,
+          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          callbackUrl,
+          redirect: false,
+        });
+        if (res?.error) {
+          setFormError("Invalid username or password.");
+          resetAltcha();
+          return;
+        }
+        if (res?.ok) {
+          router.replace(callbackUrl);
+          router.refresh();
+        }
+      } finally {
+        setBusy(false);
+      }
     },
-    [callbackUrl],
+    [
+      altchaDevBypass,
+      altchaPayload,
+      callbackUrl,
+      hasCredentialsProvider,
+      password,
+      requireAltcha,
+      resetAltcha,
+      router,
+      username,
+    ],
+  );
+
+  const handleSubmitRegister = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setFormError(null);
+      if (requireAltcha && !altchaPayload) {
+        setFormError("Complete the verification challenge first.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: username.trim(),
+            password,
+            altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          }),
+        });
+        if (!res.ok) {
+          setFormError("Could not register. Try a different username.");
+          resetAltcha();
+          return;
+        }
+        const signRes = await signIn("credentials", {
+          username: username.trim(),
+          password,
+          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          callbackUrl,
+          redirect: false,
+        });
+        if (signRes?.error) {
+          setFormError("Account created. Sign in with your new credentials.");
+          setPanel("signin");
+          resetAltcha();
+          return;
+        }
+        if (signRes?.ok) {
+          router.replace(callbackUrl);
+          router.refresh();
+        }
+      } catch {
+        setFormError("Something went wrong. Try again.");
+        resetAltcha();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      altchaDevBypass,
+      altchaPayload,
+      callbackUrl,
+      password,
+      requireAltcha,
+      resetAltcha,
+      router,
+      username,
+    ],
   );
 
   if (status === "authenticated") {
@@ -71,7 +277,7 @@ export const SignInClient = () => {
               Sign in
             </h1>
             <p className="text-sm text-muted-foreground">
-              Continue to caulfield.ai with a linked account.
+              Use your username and password. New here? Create an account.
             </p>
           </div>
 
@@ -81,50 +287,171 @@ export const SignInClient = () => {
             </p>
           ) : null}
 
-          {providerIds.length === 0 && !loadError ? (
-            <p className="text-center text-sm text-muted-foreground">
-              No sign-in providers are configured on this deployment. Set{" "}
+          {credentialAuthConfigured === false && !loadError ? (
+            <p className="text-center text-sm text-muted-foreground" role="status">
+              Sign-in is not fully configured. Set{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                GITHUB_ID
-              </code>{" "}
-              /{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                GITHUB_SECRET
-              </code>{" "}
-              or Google OAuth in the server environment, and set{" "}
+                DATABASE_URL
+              </code>
+              ,{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 AUTH_SECRET
-              </code>{" "}
-              and{" "}
+              </code>
+              , and{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                AUTH_URL
+                ALTCHA_HMAC_KEY
               </code>{" "}
-              to your production URL.
+              (or{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                ALTCHA_DEV_BYPASS=1
+              </code>{" "}
+              in development). See README.
             </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {providerIds.map((id) => (
-                <li key={id}>
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="h-11 w-full"
-                    onClick={() => {
-                      handleOAuthSignIn(id);
+          ) : null}
+
+          {hasDevProvider ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full"
+              onClick={handleDevSignIn}
+            >
+              Dev login (local only)
+            </Button>
+          ) : null}
+
+          {hasCredentialsProvider ? (
+            <>
+              <div
+                className="flex rounded-lg border border-border p-1"
+                role="tablist"
+                aria-label="Account"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={panel === "signin"}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    panel === "signin"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => {
+                    setPanel("signin");
+                  }}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={panel === "register"}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    panel === "register"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => {
+                    setPanel("register");
+                  }}
+                >
+                  Create account
+                </button>
+              </div>
+
+              <form
+                className="space-y-4"
+                onSubmit={
+                  panel === "signin" ? handleSubmitSignIn : handleSubmitRegister
+                }
+                noValidate
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="signin-username">Username</Label>
+                  <Input
+                    id="signin-username"
+                    name="username"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(ev) => {
+                      setUsername(ev.target.value);
                     }}
-                  >
-                    {id === "github"
-                      ? "Continue with GitHub"
-                      : id === "google"
-                        ? "Continue with Google"
-                        : id === "dev"
-                          ? "Dev login (local only)"
-                          : `Continue with ${id}`}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+                    className="h-11"
+                    required
+                    aria-required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    3–32 characters: lowercase letters, numbers, underscores.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    name="password"
+                    type="password"
+                    autoComplete={
+                      panel === "signin" ? "current-password" : "new-password"
+                    }
+                    value={password}
+                    onChange={(ev) => {
+                      setPassword(ev.target.value);
+                    }}
+                    className="h-11"
+                    required
+                    aria-required
+                  />
+                </div>
+
+                {altchaDevBypass ? (
+                  <p className="text-xs text-muted-foreground">
+                    ALTCHA verification is bypassed in this development
+                    environment.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-foreground">
+                      Verification
+                    </span>
+                    {altchaScriptReady ? (
+                      <div key={altchaKey} className="block w-full">
+                        <altcha-widget
+                          ref={altchaHostRef}
+                          challengeurl="/api/altcha/challenge"
+                          credentials="include"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Loading verification…
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {formError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {formError}
+                  </p>
+                ) : null}
+
+                <Button
+                  type="submit"
+                  className="h-11 w-full"
+                  disabled={busy}
+                >
+                  {panel === "signin" ? "Sign in" : "Create account"}
+                </Button>
+              </form>
+            </>
+          ) : !loadError ? (
+            <p className="text-center text-sm text-muted-foreground">
+              No credential provider is available. Configure the server
+              environment and try again.
+            </p>
+          ) : null}
 
           <p className="text-center text-xs text-muted-foreground">
             <Link

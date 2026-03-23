@@ -1,8 +1,15 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { eq } from "drizzle-orm";
+import { verifySolution } from "altcha-lib";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import GitHub from "next-auth/providers/github";
-import Google from "next-auth/providers/google";
+import bcrypt from "bcryptjs";
+
+import { parseUsername } from "@/lib/auth/username";
+import {
+  getAltchaHmacKey,
+  shouldBypassAltchaVerificationInDev,
+} from "@/lib/altcha/server";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
@@ -15,6 +22,8 @@ const DEV_FALLBACK_AUTH_SECRET =
 const authSecret =
   process.env.AUTH_SECRET?.trim() ||
   (isDev ? DEV_FALLBACK_AUTH_SECRET : undefined);
+
+const DEV_USER_ID = "dev-local-user";
 
 if (isDev && !process.env.AUTH_SECRET?.trim()) {
   if (
@@ -34,60 +43,125 @@ const devCredentialsProvider = Credentials({
   id: "dev",
   name: "Dev login",
   credentials: {},
-  authorize: async () => ({
-    id: "dev-local-user",
-    email: "dev@local.test",
-    name: "Local Dev",
-  }),
+  authorize: async () => {
+    if (!isDev || process.env.AUTH_DEV_LOGIN !== "1") {
+      return null;
+    }
+    if (!db) {
+      return {
+        id: DEV_USER_ID,
+        email: "dev@local.test",
+        name: "Local Dev",
+      };
+    }
+    const existing = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, DEV_USER_ID))
+      .limit(1);
+    if (existing[0]) {
+      return {
+        id: existing[0].id,
+        email: existing[0].email ?? undefined,
+        name: existing[0].name ?? "Local Dev",
+      };
+    }
+    await db.insert(schema.users).values({
+      id: DEV_USER_ID,
+      name: "Local Dev",
+      email: "dev@local.test",
+      username: null,
+      passwordHash: null,
+    });
+    return {
+      id: DEV_USER_ID,
+      email: "dev@local.test",
+      name: "Local Dev",
+    };
+  },
+});
+
+const credentialsProvider = Credentials({
+  id: "credentials",
+  name: "Username & password",
+  credentials: {
+    username: { label: "Username", type: "text" },
+    password: { label: "Password", type: "password" },
+    altcha: { label: "ALTCHA", type: "text" },
+  },
+  authorize: async (credentials) => {
+    if (!db) return null;
+
+    const usernameRaw = credentials?.username?.toString().trim();
+    const password = credentials?.password?.toString();
+    const altchaPayload = credentials?.altcha?.toString() ?? "";
+
+    if (!usernameRaw || !password) return null;
+
+    const hmacKey = getAltchaHmacKey();
+    const bypass = shouldBypassAltchaVerificationInDev();
+    if (!bypass) {
+      if (!hmacKey) return null;
+      if (!altchaPayload) return null;
+      const altchaOk = await verifySolution(altchaPayload, hmacKey);
+      if (!altchaOk) return null;
+    }
+
+    const parsed = parseUsername(usernameRaw);
+    if (!parsed.ok) return null;
+
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.username, parsed.username))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.passwordHash) return null;
+
+    const match = await bcrypt.compare(password, row.passwordHash);
+    if (!match) return null;
+
+    return {
+      id: row.id,
+      name: row.name ?? parsed.username,
+      email: row.email ?? undefined,
+    };
+  },
 });
 
 const providers = [];
 
-if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) {
-  providers.push(
-    GitHub({
-      clientId: process.env.GITHUB_ID,
-      clientSecret: process.env.GITHUB_SECRET,
-    }),
-  );
-}
-
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  providers.push(
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-  );
-}
-
 if (isDev && process.env.AUTH_DEV_LOGIN === "1") {
   providers.push(devCredentialsProvider);
-} else if (isDev && providers.length === 0) {
-  providers.push(devCredentialsProvider);
-  if (
-    typeof globalThis !== "undefined" &&
-    !(globalThis as { __caulfieldDevLoginWarned?: boolean })
-      .__caulfieldDevLoginWarned
-  ) {
-    (globalThis as { __caulfieldDevLoginWarned?: boolean })
-      .__caulfieldDevLoginWarned = true;
-    console.warn(
-      "[auth] No OAuth providers — enabled \"Dev login\" for development. Set GITHUB_ID/GITHUB_SECRET or AUTH_DEV_LOGIN=1 explicitly if you prefer.",
-    );
-  }
+}
+
+if (db) {
+  providers.push(credentialsProvider);
 }
 
 if (
   providers.length === 0 &&
-  !isDev &&
   typeof globalThis !== "undefined" &&
   !(globalThis as { __caulfieldAuthWarned?: boolean }).__caulfieldAuthWarned
 ) {
   (globalThis as { __caulfieldAuthWarned?: boolean }).__caulfieldAuthWarned =
     true;
   console.warn(
-    "[auth] No auth providers configured. Set GITHUB_ID/GITHUB_SECRET and/or Google OAuth in production.",
+    "[auth] No sign-in providers. Set DATABASE_URL and ALTCHA_HMAC_KEY for username/password auth, or enable AUTH_DEV_LOGIN=1 in development.",
+  );
+}
+
+if (
+  db &&
+  !isDev &&
+  !getAltchaHmacKey() &&
+  typeof globalThis !== "undefined" &&
+  !(globalThis as { __caulfieldAltchaWarned?: boolean }).__caulfieldAltchaWarned
+) {
+  (globalThis as { __caulfieldAltchaWarned?: boolean })
+    .__caulfieldAltchaWarned = true;
+  console.warn(
+    "[auth] ALTCHA_HMAC_KEY is not set — credential sign-in will fail in production until it is configured.",
   );
 }
 

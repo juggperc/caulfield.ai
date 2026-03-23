@@ -244,7 +244,7 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
           ) : user ? (
             <div className="flex flex-col gap-2">
               <p className="truncate text-xs text-foreground">
-                {user.email ?? user.id}
+                {user.name ?? user.email ?? user.id}
               </p>
               {displayQuota ? (
                 <p className="text-[11px] text-muted-foreground">

@@ -185,7 +185,9 @@ export const DevToolsPage = () => {
           <div className="mt-3 space-y-3">
             <p className="text-sm text-muted-foreground">
               Signed in as{" "}
-              <span className="font-mono text-foreground">{user.email ?? user.id}</span>
+              <span className="font-mono text-foreground">
+                {user.name ?? user.email ?? user.id}
+              </span>
             </p>
             <div className="flex flex-wrap gap-2">
               <Button

@@ -46,7 +46,9 @@ export const AccountSettings = () => {
           <h2 className="text-base font-medium text-card-foreground">Profile</h2>
           <div className="grid gap-1">
             <span className="text-sm font-medium text-muted-foreground">Signed in as</span>
-            <span className="text-sm text-foreground">{user.email ?? user.id}</span>
+            <span className="text-sm text-foreground">
+              {user.name ?? user.email ?? user.id}
+            </span>
           </div>
           <div className="pt-4">
             <Button

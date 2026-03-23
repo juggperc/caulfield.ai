@@ -21,6 +21,7 @@ import {
 
 export type SessionUser = {
   readonly id: string;
+  readonly name: string | null;
   readonly email: string | null;
 };
 
@@ -54,6 +55,7 @@ const SessionBridge = ({ children }: { readonly children: ReactNode }) => {
     user: session?.user?.id
       ? {
           id: session.user.id,
+          name: session.user.name ?? null,
           email: session.user.email ?? null,
         }
       : null,
