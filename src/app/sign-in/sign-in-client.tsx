@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "@/features/auth/session-context";
+import { Logo } from "@/features/sidebar/components/Logo";
 import { cn } from "@/lib/utils";
 import { getProviders, signIn } from "next-auth/react";
 import Link from "next/link";
@@ -271,196 +272,206 @@ export const SignInClient = () => {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <main className="flex flex-1 flex-col items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-6 rounded-xl border border-border bg-card p-8 shadow-sm">
-          <div className="space-y-1 text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-card-foreground">
-              Sign in
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Use your username and password. New here? Create an account.
+        <div className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <Logo variant="auth" />
+          <div className="space-y-6 p-8 pt-7">
+            <div className="space-y-1 text-center">
+              <h1 className="text-xl font-semibold tracking-tight text-card-foreground">
+                Sign in
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Use your username and password. New here? Create an account.
+              </p>
+            </div>
+
+            {loadError ? (
+              <p className="text-center text-sm text-destructive" role="alert">
+                {loadError}
+              </p>
+            ) : null}
+
+            {credentialAuthConfigured === false && !loadError ? (
+              <p
+                className="text-center text-sm text-muted-foreground"
+                role="status"
+              >
+                Sign-in is not fully configured. Set{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  DATABASE_URL
+                </code>
+                ,{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  AUTH_SECRET
+                </code>
+                , and{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  ALTCHA_HMAC_KEY
+                </code>{" "}
+                (or{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  ALTCHA_DEV_BYPASS=1
+                </code>{" "}
+                in development). See README.
+              </p>
+            ) : null}
+
+            {hasDevProvider ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-full"
+                onClick={handleDevSignIn}
+              >
+                Dev login (local only)
+              </Button>
+            ) : null}
+
+            {hasCredentialsProvider ? (
+              <>
+                <div
+                  className="flex rounded-lg border border-border p-1"
+                  role="tablist"
+                  aria-label="Account"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={panel === "signin"}
+                    className={cn(
+                      "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      panel === "signin"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => {
+                      setPanel("signin");
+                    }}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={panel === "register"}
+                    className={cn(
+                      "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      panel === "register"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => {
+                      setPanel("register");
+                    }}
+                  >
+                    Create account
+                  </button>
+                </div>
+
+                <form
+                  className="space-y-4"
+                  onSubmit={
+                    panel === "signin"
+                      ? handleSubmitSignIn
+                      : handleSubmitRegister
+                  }
+                  noValidate
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-username">Username</Label>
+                    <Input
+                      id="signin-username"
+                      name="username"
+                      autoComplete="username"
+                      value={username}
+                      onChange={(ev) => {
+                        setUsername(ev.target.value);
+                      }}
+                      className="h-11"
+                      required
+                      aria-required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      3–32 characters: lowercase letters, numbers, underscores.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <Input
+                      id="signin-password"
+                      name="password"
+                      type="password"
+                      autoComplete={
+                        panel === "signin"
+                          ? "current-password"
+                          : "new-password"
+                      }
+                      value={password}
+                      onChange={(ev) => {
+                        setPassword(ev.target.value);
+                      }}
+                      className="h-11"
+                      required
+                      aria-required
+                    />
+                  </div>
+
+                  {altchaDevBypass ? (
+                    <p className="text-xs text-muted-foreground">
+                      ALTCHA verification is bypassed in this development
+                      environment.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium text-foreground">
+                        Verification
+                      </span>
+                      {altchaScriptReady ? (
+                        <div key={altchaKey} className="block w-full">
+                          <altcha-widget
+                            ref={altchaHostRef}
+                            challengeurl="/api/altcha/challenge"
+                            credentials="include"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Loading verification…
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {formError ? (
+                    <p className="text-sm text-destructive" role="alert">
+                      {formError}
+                    </p>
+                  ) : null}
+
+                  <Button
+                    type="submit"
+                    className="h-11 w-full"
+                    disabled={busy}
+                  >
+                    {panel === "signin" ? "Sign in" : "Create account"}
+                  </Button>
+                </form>
+              </>
+            ) : !loadError ? (
+              <p className="text-center text-sm text-muted-foreground">
+                No credential provider is available. Configure the server
+                environment and try again.
+              </p>
+            ) : null}
+
+            <p className="text-center text-xs text-muted-foreground">
+              <Link
+                href="/"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                Back to home
+              </Link>
             </p>
           </div>
-
-          {loadError ? (
-            <p className="text-center text-sm text-destructive" role="alert">
-              {loadError}
-            </p>
-          ) : null}
-
-          {credentialAuthConfigured === false && !loadError ? (
-            <p className="text-center text-sm text-muted-foreground" role="status">
-              Sign-in is not fully configured. Set{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                DATABASE_URL
-              </code>
-              ,{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                AUTH_SECRET
-              </code>
-              , and{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                ALTCHA_HMAC_KEY
-              </code>{" "}
-              (or{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                ALTCHA_DEV_BYPASS=1
-              </code>{" "}
-              in development). See README.
-            </p>
-          ) : null}
-
-          {hasDevProvider ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-11 w-full"
-              onClick={handleDevSignIn}
-            >
-              Dev login (local only)
-            </Button>
-          ) : null}
-
-          {hasCredentialsProvider ? (
-            <>
-              <div
-                className="flex rounded-lg border border-border p-1"
-                role="tablist"
-                aria-label="Account"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={panel === "signin"}
-                  className={cn(
-                    "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    panel === "signin"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                  onClick={() => {
-                    setPanel("signin");
-                  }}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={panel === "register"}
-                  className={cn(
-                    "flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    panel === "register"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                  onClick={() => {
-                    setPanel("register");
-                  }}
-                >
-                  Create account
-                </button>
-              </div>
-
-              <form
-                className="space-y-4"
-                onSubmit={
-                  panel === "signin" ? handleSubmitSignIn : handleSubmitRegister
-                }
-                noValidate
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="signin-username">Username</Label>
-                  <Input
-                    id="signin-username"
-                    name="username"
-                    autoComplete="username"
-                    value={username}
-                    onChange={(ev) => {
-                      setUsername(ev.target.value);
-                    }}
-                    className="h-11"
-                    required
-                    aria-required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    3–32 characters: lowercase letters, numbers, underscores.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    name="password"
-                    type="password"
-                    autoComplete={
-                      panel === "signin" ? "current-password" : "new-password"
-                    }
-                    value={password}
-                    onChange={(ev) => {
-                      setPassword(ev.target.value);
-                    }}
-                    className="h-11"
-                    required
-                    aria-required
-                  />
-                </div>
-
-                {altchaDevBypass ? (
-                  <p className="text-xs text-muted-foreground">
-                    ALTCHA verification is bypassed in this development
-                    environment.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-foreground">
-                      Verification
-                    </span>
-                    {altchaScriptReady ? (
-                      <div key={altchaKey} className="block w-full">
-                        <altcha-widget
-                          ref={altchaHostRef}
-                          challengeurl="/api/altcha/challenge"
-                          credentials="include"
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Loading verification…
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {formError ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {formError}
-                  </p>
-                ) : null}
-
-                <Button
-                  type="submit"
-                  className="h-11 w-full"
-                  disabled={busy}
-                >
-                  {panel === "signin" ? "Sign in" : "Create account"}
-                </Button>
-              </form>
-            </>
-          ) : !loadError ? (
-            <p className="text-center text-sm text-muted-foreground">
-              No credential provider is available. Configure the server
-              environment and try again.
-            </p>
-          ) : null}
-
-          <p className="text-center text-xs text-muted-foreground">
-            <Link
-              href="/"
-              className="underline underline-offset-4 hover:text-foreground"
-            >
-              Back to home
-            </Link>
-          </p>
         </div>
       </main>
     </div>

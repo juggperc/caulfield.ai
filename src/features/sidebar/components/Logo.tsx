@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useMemo, useSyncExternalStore } from "react";
 
@@ -54,8 +55,14 @@ const useIsClientHydrated = () =>
     () => false,
   );
 
-export const Logo = () => {
+type LogoProps = {
+  /** `auth`: sign-in card header with gradient blend into `bg-card` below */
+  readonly variant?: "sidebar" | "auth";
+};
+
+export const Logo = ({ variant = "sidebar" }: LogoProps) => {
   const isClientHydrated = useIsClientHydrated();
+  const isAuth = variant === "auth";
 
   const scene = useMemo(
     () => (isClientHydrated ? createLogoScene() : null),
@@ -63,12 +70,23 @@ export const Logo = () => {
   );
 
   return (
-    <div className="relative h-28 w-full shrink-0 overflow-hidden border-b border-border bg-muted dark:bg-background">
+    <div
+      className={cn(
+        "relative w-full shrink-0 overflow-hidden bg-muted dark:bg-background",
+        isAuth
+          ? "h-40 rounded-t-xl border-0"
+          : "h-28 border-b border-border",
+      )}
+    >
       {scene ? (
         <>
           <div
-            className="pointer-events-none absolute inset-0 scale-[1.35]"
-            style={{ filter: "blur(36px)" }}
+            className={cn(
+              "pointer-events-none absolute inset-0 scale-[1.35]",
+              isAuth &&
+                "[mask-image:linear-gradient(to_bottom,black_0%,black_42%,rgba(0,0,0,0.65)_68%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_42%,rgba(0,0,0,0.65)_68%,transparent_100%)]",
+            )}
+            style={{ filter: isAuth ? "blur(42px)" : "blur(36px)" }}
             aria-hidden
           >
             {scene.blobs.map((blob, i) => (
@@ -103,7 +121,11 @@ export const Logo = () => {
           </div>
 
           <motion.div
-            className="pointer-events-none absolute inset-0 opacity-[0.14] mix-blend-overlay"
+            className={cn(
+              "pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.14]",
+              isAuth &&
+                "[mask-image:linear-gradient(to_bottom,black_0%,black_48%,transparent_92%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_48%,transparent_92%)]",
+            )}
             aria-hidden
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch' seed='${Math.floor(scene.grainSeed)}'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
@@ -116,12 +138,53 @@ export const Logo = () => {
             }}
           />
 
-          <div className="absolute inset-0 bg-gradient-to-b from-background/25 to-foreground/[0.06] dark:from-background/40 dark:to-black/45" />
+          {isAuth ? (
+            <>
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent via-45% to-transparent dark:from-background/30"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent from-[48%] via-card/55 via-[72%] to-card dark:via-card/70"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-b from-transparent to-card/95 dark:to-card"
+                aria-hidden
+              />
+              <motion.div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_35%,black_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_35%,black_100%)]"
+                aria-hidden
+                animate={{ opacity: [0.35, 0.55, 0.4] }}
+                transition={{
+                  duration: 14,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-b from-background/25 to-foreground/[0.06] dark:from-background/40 dark:to-black/45" />
+          )}
         </>
       ) : null}
 
-      <div className="absolute inset-0 flex flex-col justify-between p-3">
-        <span className="inline-flex w-fit rounded-md border border-border/70 bg-background/88 px-2.5 py-1 font-sans text-lg font-bold tracking-tight text-foreground shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/72">
+      <div
+        className={cn(
+          "absolute inset-0 flex p-3",
+          isAuth
+            ? "items-center justify-center"
+            : "flex-col justify-between",
+        )}
+      >
+        <span
+          className={cn(
+            "inline-flex w-fit rounded-md border border-border/70 bg-background/88 font-sans font-bold tracking-tight text-foreground shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/72",
+            isAuth
+              ? "px-3 py-1.5 text-xl"
+              : "px-2.5 py-1 text-lg",
+          )}
+        >
           caulfield.ai
         </span>
       </div>
