@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -131,17 +132,6 @@ export const SignInClient = () => {
     };
   }, []);
 
-  const handleAltchaStateChange = useCallback((ev: Event) => {
-    const ce = ev as CustomEvent<{ state?: string; payload?: string }>;
-    const { state, payload } = ce.detail ?? {};
-    if (state === "verified" && typeof payload === "string" && payload) {
-      setAltchaPayload(payload);
-    }
-    if (state === "error" || state === "expired") {
-      setAltchaPayload(null);
-    }
-  }, []);
-
   const resetAltcha = useCallback(() => {
     setAltchaPayload(null);
     setAltchaKey((k) => k + 1);
@@ -160,19 +150,37 @@ export const SignInClient = () => {
     void signIn("dev", { callbackUrl, redirect: true });
   }, [callbackUrl]);
 
-  useEffect(() => {
+  /** ALTCHA may verify before a paint; useLayoutEffect + `verified` avoids missing payload vs. relying on statechange alone. */
+  useLayoutEffect(() => {
     const el = altchaHostRef.current;
     if (!el || altchaDevBypass || !altchaScriptReady) return;
-    el.addEventListener("statechange", handleAltchaStateChange);
-    return () => {
-      el.removeEventListener("statechange", handleAltchaStateChange);
+
+    const handleStateChange = (ev: Event) => {
+      const ce = ev as CustomEvent<{ state?: string; payload?: string }>;
+      const { state, payload } = ce.detail ?? {};
+      if (state === "verified" && typeof payload === "string" && payload) {
+        setAltchaPayload(payload);
+      }
+      if (state === "error" || state === "expired") {
+        setAltchaPayload(null);
+      }
     };
-  }, [
-    altchaDevBypass,
-    altchaKey,
-    altchaScriptReady,
-    handleAltchaStateChange,
-  ]);
+
+    const handleVerified = (ev: Event) => {
+      const ce = ev as CustomEvent<{ payload?: string }>;
+      const payload = ce.detail?.payload;
+      if (typeof payload === "string" && payload) {
+        setAltchaPayload(payload);
+      }
+    };
+
+    el.addEventListener("statechange", handleStateChange);
+    el.addEventListener("verified", handleVerified);
+    return () => {
+      el.removeEventListener("statechange", handleStateChange);
+      el.removeEventListener("verified", handleVerified);
+    };
+  }, [altchaDevBypass, altchaKey, altchaScriptReady]);
 
   const handleSubmitSignIn = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
