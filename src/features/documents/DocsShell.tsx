@@ -240,10 +240,10 @@ export const DocsShell = () => {
         />
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {workspaceTab === "docs" ? (
           <>
-        <div className="flex w-[min(100%,260px)] shrink-0 flex-col border-r border-border bg-sidebar">
+        <div className="flex min-h-0 max-h-[min(40vh,280px)] w-full shrink-0 flex-col border-border bg-sidebar max-md:border-b md:max-h-none md:w-[min(100%,260px)] md:border-r">
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
             <span className="text-[13px] font-semibold tracking-tight text-foreground">
               Documents
@@ -358,7 +358,7 @@ export const DocsShell = () => {
           <SheetsWorkspace />
         )}
 
-        <div className="flex w-[min(100%,340px)] shrink-0 flex-col bg-background">
+        <div className="flex min-h-0 w-full flex-1 flex-col bg-background max-md:border-t md:w-[min(100%,340px)] md:flex-none md:shrink-0">
           <div className="shrink-0 border-b border-border px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[13px] font-medium text-foreground">

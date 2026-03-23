@@ -381,8 +381,8 @@ export const MarketplaceShell = () => {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-muted">
       <WorkspacePanelHeader title="Marketplace" />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5">
-        <div className="mx-auto flex max-w-4xl flex-col gap-8">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 md:p-5">
+        <div className="mx-auto flex max-w-4xl flex-col gap-6 md:gap-8">
           <ConnectorSection id="built-in" title="Built-in">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <NativeSearchCard />

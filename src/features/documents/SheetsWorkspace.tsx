@@ -60,8 +60,8 @@ export const SheetsWorkspace = () => {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 bg-muted">
-      <div className="flex min-h-0 min-w-0 flex-1">
-        <div className="flex w-[min(100%,260px)] shrink-0 flex-col border-r border-border bg-muted">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 max-h-[min(38vh,260px)] w-full shrink-0 flex-col border-border bg-muted max-md:border-b md:max-h-none md:w-[min(100%,260px)] md:border-r">
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
             <span className="text-[13px] font-semibold tracking-tight text-foreground">
               Spreadsheets
@@ -119,7 +119,7 @@ export const SheetsWorkspace = () => {
           </ScrollArea>
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
+        <div className="flex min-h-[min(42vh,360px)] min-w-0 flex-1 flex-col bg-card max-md:border-b md:min-h-0">
           {selectedSheet ? (
             <>
               <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">

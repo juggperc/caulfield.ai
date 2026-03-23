@@ -59,8 +59,8 @@ export const NotesShell = () => {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 bg-muted">
-      <div className="flex w-[min(100%,280px)] shrink-0 flex-col border-r border-border bg-muted">
+    <div className="flex min-h-0 flex-1 flex-col bg-muted md:flex-row">
+      <div className="flex min-h-0 max-h-[min(45vh,320px)] w-full shrink-0 flex-col border-border bg-muted max-md:border-b md:max-h-none md:w-[min(100%,280px)] md:border-r">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <span className="text-[13px] font-semibold tracking-tight text-foreground">
             Notes
@@ -143,10 +143,10 @@ export const NotesShell = () => {
         </ScrollArea>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-card">
+      <div className="flex min-h-[min(50vh,420px)] min-w-0 flex-1 flex-col bg-card md:min-h-0">
         {selectedNote ? (
           <>
-            <div className="flex items-start justify-between gap-3 border-b border-border px-6 py-3">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 md:px-6">
               <input
                 type="text"
                 value={selectedNote.title ?? ""}
@@ -177,7 +177,7 @@ export const NotesShell = () => {
             <textarea
               value={selectedNote.content ?? ""}
               onChange={(e) => handleContentChange(e.target.value)}
-              className="min-h-0 flex-1 resize-none border-0 bg-transparent px-6 py-4 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-h-0 flex-1 resize-none border-0 bg-transparent px-4 py-4 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground md:px-6"
               placeholder="Start typing…"
               aria-label="Note body"
             />

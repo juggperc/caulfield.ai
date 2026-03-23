@@ -26,6 +26,8 @@ const SIDEBAR_WIDTH = "18rem";
 type SidebarProps = {
   readonly activePanel: AppPanel;
   readonly onPanelChange: (panel: AppPanel) => void;
+  readonly mobileNavOpen: boolean;
+  readonly onRequestClose: () => void;
 };
 
 type QuotaJson = {
@@ -35,7 +37,12 @@ type QuotaJson = {
   subscribed: boolean;
 };
 
-export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
+export const Sidebar = ({
+  activePanel,
+  onPanelChange,
+  mobileNavOpen,
+  onRequestClose,
+}: SidebarProps) => {
   const { user, status, signIn, signOut } = useSession();
   const [quota, setQuota] = useState<QuotaJson | null>(null);
   const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
@@ -84,11 +91,19 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
 
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-border bg-sidebar"
+      id="workspace-sidebar"
+      className={cn(
+        "fixed inset-y-0 left-0 flex w-72 flex-col border-r border-border bg-sidebar transition-transform duration-200 ease-out",
+        "z-50 md:z-40",
+        mobileNavOpen ? "translate-x-0" : "-translate-x-full",
+        "md:translate-x-0",
+        "pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]",
+      )}
       style={{ width: SIDEBAR_WIDTH }}
     >
       <Logo />
       <nav
+        id="workspace-sidebar-nav"
         className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3"
         aria-label="Workspace"
       >
@@ -276,6 +291,7 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
                 size="sm"
                 className="w-full justify-start gap-2 text-muted-foreground"
                 onClick={() => {
+                  onRequestClose();
                   void signOut();
                 }}
               >
@@ -289,7 +305,10 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
               variant="outline"
               size="sm"
               className="w-full gap-2"
-              onClick={signIn}
+              onClick={() => {
+                onRequestClose();
+                signIn();
+              }}
             >
               <LogIn className="size-4" aria-hidden />
               Sign in
@@ -307,4 +326,4 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
   );
 };
 
-export const MAIN_OFFSET_CLASS = "pl-72";
+export const MAIN_OFFSET_CLASS = "pl-0 md:pl-72";

@@ -22,12 +22,28 @@ import {
   Sidebar,
 } from "@/features/sidebar/components/Sidebar";
 import type { AppPanel } from "@/features/shell/panel";
+import { MobileWorkspaceBar } from "@/features/shell/MobileWorkspaceBar";
 import { WorkspaceLibrarySync } from "@/features/shell/WorkspaceLibrarySync";
 import { WorkspaceSnapshotsRegistrar } from "@/features/shell/WorkspaceSnapshotsRegistrar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const AppLayout = () => {
   const [panel, setPanel] = useState<AppPanel>("chat");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const handlePanelChange = (next: AppPanel) => {
+    setPanel(next);
+    setMobileNavOpen(false);
+  };
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileNavOpen]);
 
   return (
     <SessionProvider>
@@ -41,27 +57,52 @@ export const AppLayout = () => {
                     <LibraryProvider>
                       <WorkspaceSnapshotsRegistrar />
                       <WorkspaceLibrarySync />
-                      <AiWorkspaceProvider panel={panel} onPanelChange={setPanel}>
-                        <div className="flex min-h-screen bg-background text-foreground">
-                          <Sidebar activePanel={panel} onPanelChange={setPanel} />
-                          <main
-                            data-ai-workspace
-                            className={`flex min-h-screen min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
+                      <AiWorkspaceProvider
+                        panel={panel}
+                        onPanelChange={handlePanelChange}
+                      >
+                        <div className="flex min-h-screen min-h-[100dvh] bg-background text-foreground">
+                          {mobileNavOpen ? (
+                            <button
+                              type="button"
+                              className="fixed inset-0 z-40 bg-black/40 md:hidden"
+                              aria-label="Close menu"
+                              onClick={() => setMobileNavOpen(false)}
+                            />
+                          ) : null}
+                          <Sidebar
+                            activePanel={panel}
+                            onPanelChange={handlePanelChange}
+                            mobileNavOpen={mobileNavOpen}
+                            onRequestClose={() => setMobileNavOpen(false)}
+                          />
+                          <div
+                            className={`flex min-h-0 min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
                           >
-                            {panel === "chat" ? (
-                              <ChatShell />
-                            ) : panel === "notes" ? (
-                              <NotesShell />
-                            ) : panel === "docs" ? (
-                              <DocsShell />
-                            ) : panel === "library" ? (
-                              <LibraryShell />
-                            ) : panel === "marketplace" ? (
-                              <MarketplaceShell />
-                            ) : (
-                              <AccountSettings />
-                            )}
-                          </main>
+                            <MobileWorkspaceBar
+                              panel={panel}
+                              navOpen={mobileNavOpen}
+                              onOpenNav={() => setMobileNavOpen(true)}
+                            />
+                            <main
+                              data-ai-workspace
+                              className="flex min-h-0 min-w-0 flex-1 flex-col"
+                            >
+                              {panel === "chat" ? (
+                                <ChatShell />
+                              ) : panel === "notes" ? (
+                                <NotesShell />
+                              ) : panel === "docs" ? (
+                                <DocsShell />
+                              ) : panel === "library" ? (
+                                <LibraryShell />
+                              ) : panel === "marketplace" ? (
+                                <MarketplaceShell />
+                              ) : (
+                                <AccountSettings />
+                              )}
+                            </main>
+                          </div>
                         </div>
                         <GlobalContextMenuLayer />
                       </AiWorkspaceProvider>

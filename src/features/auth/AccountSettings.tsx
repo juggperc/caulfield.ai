@@ -9,7 +9,7 @@ export const AccountSettings = () => {
 
   if (status === "loading") {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
+      <div className="flex flex-1 items-center justify-center p-4 md:p-8">
         <p className="text-sm text-muted-foreground animate-pulse">Loading settings...</p>
       </div>
     );
@@ -31,7 +31,7 @@ export const AccountSettings = () => {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-8 lg:p-12">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-8 lg:p-12">
       <div className="mx-auto w-full max-w-2xl space-y-10">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -42,7 +42,7 @@ export const AccountSettings = () => {
           </p>
         </div>
 
-        <section className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm md:p-6">
           <h2 className="text-base font-medium text-card-foreground">Profile</h2>
           <div className="grid gap-1">
             <span className="text-sm font-medium text-muted-foreground">Signed in as</span>
@@ -65,7 +65,7 @@ export const AccountSettings = () => {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm md:p-6">
           <h2 className="text-base font-medium text-card-foreground">Billing & Quota</h2>
           <p className="text-sm text-muted-foreground">
             You can subscribe to increase your query limits and access standard models.
@@ -84,7 +84,7 @@ export const AccountSettings = () => {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border border-destructive/20 bg-destructive/5 p-6 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-destructive/20 bg-destructive/5 p-4 shadow-sm md:p-6">
           <h2 className="text-base font-medium text-destructive">Danger Zone</h2>
           <p className="text-sm text-muted-foreground">
             Irreversibly delete your account and all associated data. Active subscriptions must be canceled first.

@@ -74,7 +74,7 @@ export const LibraryShell = () => {
         </Button>
       </WorkspacePanelHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 md:p-5">
         {!hydrated ? (
           <p className="text-sm text-muted-foreground">Loading library…</p>
         ) : items.length === 0 ? (
@@ -84,7 +84,7 @@ export const LibraryShell = () => {
           </p>
         ) : (
           <ul
-            className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]"
             aria-label="Library items"
           >
             {items.map((item) => (

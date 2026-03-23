@@ -85,7 +85,7 @@ export const ChatInputBar = ({
   }, []);
 
   return (
-    <div className="shrink-0 border-t border-border bg-background/95 px-3 pb-3 pt-2 backdrop-blur-sm">
+    <div className="shrink-0 border-t border-border bg-background/95 px-3 pt-2 backdrop-blur-sm max-md:pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:pb-3">
       <form
         onSubmit={handleSubmit}
         className="mx-auto max-w-3xl rounded-xl border border-border bg-card shadow-sm"
