@@ -29,6 +29,7 @@ type SidebarProps = {
 };
 
 type QuotaJson = {
+  unlimited?: boolean;
   freeRemaining: number;
   paidRemaining: number;
   subscribed: boolean;
@@ -248,12 +249,15 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
               </p>
               {displayQuota ? (
                 <p className="text-[11px] text-muted-foreground">
-                  {displayQuota.subscribed
-                    ? `${displayQuota.paidRemaining} queries left this period`
-                    : `${displayQuota.freeRemaining} free queries left`}
+                  {displayQuota.unlimited
+                    ? "Unlimited queries"
+                    : displayQuota.subscribed
+                      ? `${displayQuota.paidRemaining} queries left this period`
+                      : `${displayQuota.freeRemaining} free queries left`}
                 </p>
               ) : null}
-              {!displayQuota?.subscribed &&
+              {!displayQuota?.unlimited &&
+              !displayQuota?.subscribed &&
               displayQuota &&
               displayQuota.freeRemaining === 0 ? (
                 <a

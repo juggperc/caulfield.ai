@@ -3,10 +3,39 @@ import { db } from "@/lib/db";
 import {
   billingSubscription,
   userUsage,
+  users,
 } from "@/lib/db/schema";
 
 export const FREE_QUERY_LIMIT = 5;
 export const PAID_QUERY_LIMIT_PER_PERIOD = 100;
+
+const buildUnlimitedQuotaUsernameSet = (): ReadonlySet<string> => {
+  const s = new Set<string>(["cauladmin"]);
+  const raw = process.env.UNLIMITED_QUOTA_USERNAMES?.trim();
+  if (raw) {
+    for (const part of raw.split(",")) {
+      const u = part.trim().toLowerCase();
+      if (u) s.add(u);
+    }
+  }
+  return s;
+};
+
+const unlimitedQuotaUsernames: ReadonlySet<string> =
+  buildUnlimitedQuotaUsernameSet();
+
+const userHasUnlimitedQuotaByUsername = async (
+  userId: string,
+): Promise<boolean> => {
+  if (!db) return false;
+  const [row] = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const u = row?.username?.trim().toLowerCase();
+  return u != null && unlimitedQuotaUsernames.has(u);
+};
 
 export type QuotaCheck =
   | { ok: true }
@@ -54,6 +83,8 @@ export const checkChatQuota = async (
 ): Promise<QuotaCheck> => {
   if (options?.billable === false) return { ok: true };
   if (!db) return { ok: true };
+
+  if (await userHasUnlimitedQuotaByUsername(userId)) return { ok: true };
 
   await ensureUsageRow(userId);
 
@@ -131,6 +162,8 @@ export const consumeChatQuery = async (
   if (options?.billable === false) return;
   if (!db) return;
 
+  if (await userHasUnlimitedQuotaByUsername(userId)) return;
+
   await ensureUsageRow(userId);
 
   const [usageRow] = await db
@@ -176,11 +209,22 @@ export const consumeChatQuery = async (
 export const getQuotaSnapshot = async (userId: string) => {
   if (!db) {
     return {
+      unlimited: false,
       freeRemaining: FREE_QUERY_LIMIT,
       paidRemaining: 0,
       subscribed: false,
     };
   }
+
+  if (await userHasUnlimitedQuotaByUsername(userId)) {
+    return {
+      unlimited: true,
+      freeRemaining: FREE_QUERY_LIMIT,
+      paidRemaining: PAID_QUERY_LIMIT_PER_PERIOD,
+      subscribed: true,
+    };
+  }
+
   await ensureUsageRow(userId);
   const [usageRow] = await db
     .select()
@@ -208,6 +252,7 @@ export const getQuotaSnapshot = async (userId: string) => {
     sub.currentPeriodEnd.getTime() > Date.now();
 
   return {
+    unlimited: false,
     freeRemaining: Math.max(0, FREE_QUERY_LIMIT - adjusted.freeQueriesUsed),
     paidRemaining: subscribed
       ? Math.max(0, PAID_QUERY_LIMIT_PER_PERIOD - adjusted.paidQueriesUsed)

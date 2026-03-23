@@ -10,6 +10,7 @@ type DevStateJson = {
   env: { databaseConfigured: boolean };
   user: { id: string; email: string | null; name: string | null };
   quota: {
+    unlimited?: boolean;
     freeRemaining: number;
     paidRemaining: number;
     subscribed: boolean;
@@ -242,6 +243,12 @@ export const DevToolsPage = () => {
                   <dt className="text-muted-foreground">Database</dt>
                   <dd className="font-mono">
                     {state.env.databaseConfigured ? "connected" : "not set"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Unlimited</dt>
+                  <dd className="font-mono">
+                    {state.quota.unlimited ? "yes" : "no"}
                   </dd>
                 </div>
                 <div>

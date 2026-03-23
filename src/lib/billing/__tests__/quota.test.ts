@@ -16,6 +16,18 @@ import { db } from "@/lib/db";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double for chained query builder
 const mockDb = db as any;
 
+const mockQuotaUserLookup = (username: string | null) => {
+  mockDb.select.mockReturnValueOnce({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(
+          username == null ? [] : [{ username }],
+        ),
+      }),
+    }),
+  });
+};
+
 describe("Quota Enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,6 +38,7 @@ describe("Quota Enforcement", () => {
   });
 
   it("allows chat when free limit is 0 but not exceeded", async () => {
+    mockQuotaUserLookup("regular");
     // Return free usage of 0
     mockDb.select.mockReturnValueOnce({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ userId: "user_1", freeQueriesUsed: 0, paidQueriesUsed: 0 }]) }) }) });
     // Return no sub
@@ -36,6 +49,7 @@ describe("Quota Enforcement", () => {
   });
 
   it("denies chat when free limit is exceeded (5 queries) and no active sub", async () => {
+    mockQuotaUserLookup("regular");
     // Return free usage of 5
     mockDb.select.mockReturnValueOnce({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ userId: "user_1", freeQueriesUsed: 5, paidQueriesUsed: 0 }]) }) }) });
     // Return no sub
@@ -52,6 +66,7 @@ describe("Quota Enforcement", () => {
   });
 
   it("allows chat when free limit is exceeded but user has active sub within limit", async () => {
+    mockQuotaUserLookup("regular");
     // Return free usage of 5, paid usage of 50 (limit is 100)
     mockDb.select.mockReturnValueOnce({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ userId: "user_1", freeQueriesUsed: 5, paidQueriesUsed: 50 }]) }) }) });
     // Return active sub
@@ -70,6 +85,7 @@ describe("Quota Enforcement", () => {
   });
 
   it("denies chat when paid limit is exceeded (100 queries)", async () => {
+    mockQuotaUserLookup("regular");
     // Return paid usage of 100
     mockDb.select.mockReturnValueOnce({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ userId: "user_1", freeQueriesUsed: 5, paidQueriesUsed: 100 }]) }) }) });
     // Return active sub
@@ -85,5 +101,13 @@ describe("Quota Enforcement", () => {
       freeRemaining: 0, // Since free is already 5
       paidRemaining: 0,
     });
+  });
+
+  it("allows chat for built-in unlimited username cauladmin without usage queries", async () => {
+    mockQuotaUserLookup("cauladmin");
+
+    const result = await checkChatQuota("admin_user");
+    expect(result).toEqual({ ok: true });
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 });
