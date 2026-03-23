@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { ChatResearchMemoryDialogs } from "./ChatResearchMemoryDialogs";
+import { ModelChipButton } from "./ModelChipButton";
 import { SettingsPopover } from "./SettingsPopover";
 import { ToolPalette } from "./ToolPalette";
 
@@ -114,6 +115,7 @@ export const ChatInputBar = ({
               ariaLabelActive="Stop dictation"
             />
             <ChatResearchMemoryDialogs />
+            <ModelChipButton disabled={isBusy} />
             <SettingsPopover />
             <Button
               type="submit"

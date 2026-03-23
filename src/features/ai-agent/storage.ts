@@ -49,9 +49,19 @@ export const readOpenRouterKey = (): string => {
   return localStorage.getItem(STORAGE_KEYS.openRouterKey) ?? "";
 };
 
+export const writeOpenRouterKey = (value: string): void => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEYS.openRouterKey, value);
+};
+
 export const readOpenRouterModel = (): string => {
   if (typeof window === "undefined") return "";
   return localStorage.getItem(STORAGE_KEYS.openRouterModel) ?? "";
+};
+
+export const writeOpenRouterModel = (modelId: string): void => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEYS.openRouterModel, modelId);
 };
 
 export const readOpenRouterEmbeddingModel = (): string => {
@@ -60,6 +70,11 @@ export const readOpenRouterEmbeddingModel = (): string => {
     localStorage.getItem(STORAGE_KEYS.openRouterEmbeddingModel) ??
     DEFAULT_EMBEDDING_MODEL
   );
+};
+
+export const writeOpenRouterEmbeddingModel = (modelId: string): void => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEYS.openRouterEmbeddingModel, modelId);
 };
 
 /** Default on when unset; only explicit `"0"` disables (same pattern as native search). */

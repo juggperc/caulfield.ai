@@ -6,10 +6,11 @@ import {
   readOpenRouterKey,
   readOpenRouterModel,
 } from "@/features/ai-agent/storage";
+import { ModelChipButton } from "@/features/chat-ui/ModelChipButton";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
 import { cn } from "@/lib/utils";
 import { Loader2, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type ApiOk = {
   ok: true;
@@ -31,14 +32,26 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
   const [busy, setBusy] = useState(false);
   const [lastSummary, setLastSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hostedOpenRouter, setHostedOpenRouter] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/config", { credentials: "include" })
+      .then((r) => r.json() as Promise<{ hostedOpenRouter?: boolean }>)
+      .then((c) => setHostedOpenRouter(Boolean(c.hostedOpenRouter)))
+      .catch(() => setHostedOpenRouter(false));
+  }, []);
 
   const handleRun = useCallback(async () => {
     const t = topic.trim();
     if (!t || busy) return;
     const key = readOpenRouterKey().trim();
     const model = readOpenRouterModel().trim();
-    if (!key || !model) {
-      setError("Add your OpenRouter API key and model in settings first.");
+    if (!model) {
+      setError("Choose a chat model (⌘K or settings) first.");
+      return;
+    }
+    if (!hostedOpenRouter && !key) {
+      setError("Add your OpenRouter API key in settings first.");
       return;
     }
     setBusy(true);
@@ -49,7 +62,7 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-openrouter-key": key,
+          ...(key ? { "x-openrouter-key": key } : {}),
           "x-openrouter-model": model,
         },
         body: JSON.stringify({ topic: t }),
@@ -68,7 +81,7 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
     } finally {
       setBusy(false);
     }
-  }, [topic, busy, addSnippets]);
+  }, [topic, busy, addSnippets, hostedOpenRouter]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -98,6 +111,12 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
           Multi-step agent loop with Wikipedia, arXiv, and chunked web fetch.
           Saved snippets feed chat RAG alongside Notes and Memory.
         </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Model
+          </span>
+          <ModelChipButton disabled={busy} />
+        </div>
         <div className="flex flex-col gap-2">
           <label
             htmlFor="research-topic"
