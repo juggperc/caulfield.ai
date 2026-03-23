@@ -252,6 +252,7 @@ export async function POST(req: Request) {
   const c7Key = integrationKeys?.context7ApiKey?.trim();
   const exaKey = integrationKeys?.exaApiKey?.trim();
   const nativeOn = integrationKeys?.nativeSearchEnabled === true;
+  const webToolsAvailable = nativeOn || Boolean(exaKey);
   const githubOn = integrationKeys?.githubEnabled === true;
   const githubTok = integrationKeys?.githubToken?.trim();
 
@@ -299,6 +300,16 @@ export async function POST(req: Request) {
 ## Document files (chat mode)
 When the user asks for an Excel spreadsheet, a Word document, or a CSV/Markdown/text file, call the appropriate tool (\`create_spreadsheet\`, \`create_word_document\`, \`create_text_document\`). The UI builds the file in the browser for download. Do not paste huge tables or base64 in the message text; use tools and briefly summarize.`;
 
+  const webHarnessOff = !webToolsAvailable
+    ? `## Live web lookup (disabled for this session)
+No live web search tools are available. If the user asks for **breaking news**, **search the web**, or other **fresh public** facts, tell them to open **Marketplace** and enable **Built-in web lookup** and/or add an **Exa** API key, then retry. You still have notes, memory, workspace, docs/sheets context, and file-creation tools.`
+    : "";
+
+  const webHarnessOn = webToolsAvailable
+    ? `## Current events and the public web
+When the user asks for breaking news, to **search the web**, or other **live / fresh public** information: call \`native_web_lookup\` and/or \`exa_search\` **before** answering from memory alone—use whichever tool fits (Exa for broad search when enabled; \`native_web_lookup\` for quick facts and Wikipedia-backed topics). Synthesize from tool output. **Do not** claim you cannot access the public web while these tools are available.`
+    : "";
+
   const chatSystem = `You are Caulfield.ai — a capable assistant with **full access** to the user's **notes** and **memory** through tools.
 
 Behavior:
@@ -309,6 +320,8 @@ Behavior:
 - Retrieved excerpts below combine **semantic RAG** over notes, **Deep Research** snippets (from the Research tab), and **memory**. They may be incomplete; tools are authoritative for full text.
 
 ${docCreationInstructions}
+
+${webHarnessOff}
 
 ${
   c7Key || exaKey || nativeOn || githubOn
@@ -336,6 +349,8 @@ ${
 Use these when the user needs documentation, repos, or the open web; prefer tools over guessing.`
     : ""
 }
+
+${webHarnessOn}
 
 ${
   workspaceDocuments.length || workspaceSheets.length
@@ -396,6 +411,10 @@ The client applies a batch in **descending anchor order** (\`from\` for replace/
 - **Sheets tab:** use \`sheets_apply_cells\` for workspace spreadsheets. \`sheetRevision\` must match the sheet revision in context; omit \`sheetId\` to target the active sheet.
 - **Notes, memory & downloads:** you also have \`notes_*\`, \`memory_*\` tools and file-creation tools (\`create_spreadsheet\`, etc.) like main chat—use them when the user asks.
 - Be concise in natural-language replies after editing.
+
+${webHarnessOff}
+
+${webHarnessOn}
 
 ## Retrieved context (notes, research, memory)
 ${ragBlock || "_No excerpts._"}`;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemory } from "@/features/memory/memory-provider";
-import { Brain, Pencil, Trash2 } from "lucide-react";
+import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
+import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 export const MemoryShell = () => {
@@ -73,22 +74,15 @@ export const MemoryShell = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <header className="shrink-0 border-b border-border px-4 py-3">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2">
-          <div className="flex items-center gap-2 text-foreground">
-            <Brain className="size-5 shrink-0 opacity-80" aria-hidden />
-            <h1 className="text-lg font-semibold tracking-tight">Memory</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Long-lived facts and preferences. The chat agent can write here with
-            tools; entries are also retrieved via RAG. Scoped per account when
-            auth is enabled.
-          </p>
-        </div>
-      </header>
+    <div className="flex min-h-0 flex-1 flex-col bg-muted">
+      <WorkspacePanelHeader title="Memory" />
 
-      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+        <p className="text-sm text-muted-foreground">
+          Long-lived facts and preferences. The chat agent can write here with
+          tools; entries are retrieved via RAG. Storage is scoped per account when
+          auth is enabled.
+        </p>
         <section
           className="rounded-lg border border-border bg-card p-4 shadow-sm"
           aria-label={editingId ? "Edit memory entry" : "New memory entry"}

@@ -30,7 +30,8 @@ export const readIntegrationKeysForChatBody = (): IntegrationKeysBody => {
   const exk = localStorage.getItem(STORAGE_KEYS.exaApiKey)?.trim() ?? "";
   const exe = localStorage.getItem(STORAGE_KEYS.exaEnabled) === "1";
   if (exe && exk) out.exaApiKey = exk;
-  if (localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) === "1") {
+  // Default on when unset; only explicit "0" disables (see Marketplace copy).
+  if (localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) !== "0") {
     out.nativeSearchEnabled = true;
   }
   if (localStorage.getItem(STORAGE_KEYS.githubEnabled) === "1") {

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { getLibraryBlob } from "@/features/library/library-store";
+import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
 import { Download, FileUp, Trash2 } from "lucide-react";
 import { useRef } from "react";
 import { useLibrary } from "./library-context";
@@ -50,8 +51,8 @@ export const LibraryShell = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="flex shrink-0 justify-end border-b border-border px-3 py-2">
+    <div className="flex min-h-0 flex-1 flex-col bg-muted">
+      <WorkspacePanelHeader title="Library">
         <input
           ref={inputRef}
           type="file"
@@ -71,9 +72,9 @@ export const LibraryShell = () => {
           <FileUp className="size-3.5 opacity-70" aria-hidden />
           Upload
         </Button>
-      </div>
+      </WorkspacePanelHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5">
         {!hydrated ? (
           <p className="text-sm text-muted-foreground">Loading library…</p>
         ) : items.length === 0 ? (

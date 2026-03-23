@@ -6,7 +6,8 @@ import {
   readOpenRouterKey,
   readOpenRouterModel,
 } from "@/features/ai-agent/storage";
-import { Loader2, Microscope, Trash2 } from "lucide-react";
+import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
+import { Loader2, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 type ApiOk = {
@@ -71,21 +72,14 @@ export const ResearchShell = () => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <header className="shrink-0 border-b border-border px-4 py-3">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2">
-          <div className="flex items-center gap-2 text-foreground">
-            <Microscope className="size-5 shrink-0 opacity-80" aria-hidden />
-            <h1 className="text-lg font-semibold tracking-tight">Deep Research</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Multi-step agent loop with Wikipedia, arXiv, and chunked web fetch.
-            Saved snippets are embedded into chat context (RAG) automatically.
-          </p>
-        </div>
-      </header>
+    <div className="flex min-h-0 flex-1 flex-col bg-muted">
+      <WorkspacePanelHeader title="Deep Research" />
 
-      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 md:p-5">
+        <p className="text-sm text-muted-foreground">
+          Multi-step agent loop with Wikipedia, arXiv, and chunked web fetch.
+          Saved snippets feed chat RAG alongside Notes and Memory.
+        </p>
         <div className="flex flex-col gap-2">
           <label
             htmlFor="research-topic"

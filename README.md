@@ -53,7 +53,8 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 
 ### Marketplace
 
-- Toggle **native web lookup**, **GitHub** (public repos), **Context7** (library docs), and **Exa** (search) — API keys stay in the browser unless you deploy your own backend.
+- **In-app chat connectors:** **Built-in web lookup** (DuckDuckGo + Wikipedia, **on by default**; turn off in Marketplace if you want), **GitHub** (REST), **Context7**, and **Exa** — vendor keys stay in the browser unless you harden the deployment.
+- **Remote MCP catalog:** informational cards for popular **hosted MCP servers** (GitHub Copilot MCP, Canva, Figma, Notion, Hugging Face, Linear, Firecrawl) with brand icons and links — configure those in MCP-capable clients (e.g. Cursor), not inside Caulfield chat yet. See the [KDnuggets remote MCP roundup](https://www.kdnuggets.com/7-free-remote-mcps-you-must-use-as-a-developer) for context.
 
 ### Deep Research
 
@@ -85,7 +86,7 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 |:------|:--------|
 | **Framework** | [Next.js 16](https://nextjs.org/) (App Router) |
 | **UI** | React 19, [Tailwind CSS 4](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) patterns, [Framer Motion](https://www.framer.com/motion/) |
-| **AI** | [Vercel AI SDK](https://sdk.vercel.ai/) + [@openrouter/ai-sdk-provider](https://www.npmjs.com/package/@openrouter/ai-sdk-provider) |
+| **AI** | [Vercel AI SDK](https://sdk.vercel.ai/) + [@openrouter/ai-sdk-provider](https://www.npmjs.com/package/@openrouter/ai-sdk-provider), [Simple Icons](https://simpleicons.org/) (Marketplace brand marks) |
 | **Editor** | [TipTap](https://tiptap.dev/) |
 | **Validation** | [Zod](https://zod.dev/) |
 

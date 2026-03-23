@@ -1,10 +1,18 @@
 "use client";
 
+import { BrandIcon } from "@/components/BrandIcon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { STORAGE_KEYS } from "@/features/ai-agent/storage";
+import {
+  KD_MCP_ARTICLE_URL,
+  REMOTE_MCP_CATALOG,
+  type RemoteMcpCatalogEntry,
+} from "@/features/marketplace/mcp-remote-catalog";
+import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
 import { cn } from "@/lib/utils";
-import { BookOpen, ExternalLink, Github, Globe, Search } from "lucide-react";
+import { siGithub } from "simple-icons";
+import { BookOpen, ExternalLink, Globe, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 const ConnectorStatusPill = ({ enabled }: { readonly enabled: boolean }) => (
@@ -21,12 +29,22 @@ const ConnectorStatusPill = ({ enabled }: { readonly enabled: boolean }) => (
   </span>
 );
 
+const RemoteMcpStatusPill = () => (
+  <span
+    className="inline-flex shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-secondary-foreground"
+    title="Configure in Cursor, Claude Desktop, or other MCP-capable clients"
+  >
+    Remote MCP
+  </span>
+);
+
 const ConnectorCardFrame = ({
   icon,
   title,
   description,
   link,
   enabled,
+  statusSlot,
   children,
   footer,
 }: {
@@ -35,6 +53,7 @@ const ConnectorCardFrame = ({
   readonly description: string;
   readonly link: ReactNode;
   readonly enabled: boolean;
+  readonly statusSlot?: ReactNode;
   readonly children: ReactNode;
   readonly footer?: ReactNode;
 }) => (
@@ -49,7 +68,7 @@ const ConnectorCardFrame = ({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <ConnectorStatusPill enabled={enabled} />
+          {statusSlot ?? <ConnectorStatusPill enabled={enabled} />}
         </div>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {description}
@@ -59,6 +78,52 @@ const ConnectorCardFrame = ({
     </div>
     <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2">{children}</div>
     {footer ? <div className="mt-2 shrink-0">{footer}</div> : null}
+  </article>
+);
+
+const RemoteMcpCatalogCard = ({ entry }: { readonly entry: RemoteMcpCatalogEntry }) => (
+  <article className="flex min-h-[200px] flex-col rounded-lg border border-border bg-card p-3.5 shadow-sm md:min-h-[220px]">
+    <div className="flex gap-3">
+      <div
+        className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted"
+        aria-hidden
+      >
+        <BrandIcon icon={entry.brand} size={24} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{entry.name}</h2>
+          <RemoteMcpStatusPill />
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {entry.description}
+        </p>
+        <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+          <a
+            href={entry.primaryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClass}
+          >
+            {entry.linkLabel}
+            <ExternalLink className="size-3 opacity-70" aria-hidden />
+          </a>
+          <a
+            href={KD_MCP_ARTICLE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(linkClass, "text-muted-foreground")}
+          >
+            KDnuggets roundup
+            <ExternalLink className="size-3 opacity-70" aria-hidden />
+          </a>
+        </div>
+      </div>
+    </div>
+    <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+      Not wired into Caulfield chat yet — add this MCP in a compatible client using
+      the vendor URL and your OAuth or API key.
+    </p>
   </article>
 );
 
@@ -183,12 +248,13 @@ const ApiKeyConnectorCard = ({
   );
 };
 
+const readNativeSearchEnabledInitial = (): boolean => {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) !== "0";
+};
+
 const NativeSearchCard = () => {
-  const [enabled, setEnabled] = useState(() =>
-    typeof window === "undefined"
-      ? false
-      : localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) === "1",
-  );
+  const [enabled, setEnabled] = useState(readNativeSearchEnabledInitial);
 
   const persistEnabled = (v: boolean) => {
     setEnabled(v);
@@ -213,11 +279,16 @@ const NativeSearchCard = () => {
         </a>
       }
       footer={
-        <p className="text-[11px] leading-snug text-muted-foreground">
-          Exposes{" "}
-          <code className="rounded bg-muted px-1">native_web_lookup</code> in
-          chat. Respect site terms; results may be incomplete.
-        </p>
+        <div className="space-y-1 text-[11px] leading-snug text-muted-foreground">
+          <p>
+            Exposes{" "}
+            <code className="rounded bg-muted px-1">native_web_lookup</code> in
+            chat. Respect site terms; results may be incomplete.
+          </p>
+          <p className="text-foreground/80">
+            Recommended on for news and live facts.
+          </p>
+        </div>
       }
     >
       <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
@@ -257,7 +328,7 @@ const GithubConnectorCard = () => {
 
   return (
     <ConnectorCardFrame
-      icon={<Github className="size-5" />}
+      icon={<BrandIcon icon={siGithub} size={22} />}
       title="GitHub"
       description="Search public repositories, read READMEs, and fetch text files via the GitHub REST API. Works without a token at a lower rate limit."
       enabled={enabled}
@@ -308,8 +379,9 @@ const GithubConnectorCard = () => {
 
 export const MarketplaceShell = () => {
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+    <div className="flex min-h-0 flex-1 flex-col bg-muted">
+      <WorkspacePanelHeader title="Marketplace" />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-5">
         <div className="mx-auto flex max-w-4xl flex-col gap-8">
           <ConnectorSection id="built-in" title="Built-in">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -339,6 +411,26 @@ export const MarketplaceShell = () => {
                 storageKey={STORAGE_KEYS.exaApiKey}
                 enabledStorageKey={STORAGE_KEYS.exaEnabled}
               />
+            </div>
+          </ConnectorSection>
+          <ConnectorSection id="remote-mcp" title="Remote MCP catalog">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Hosted MCP servers from the{" "}
+              <a
+                href={KD_MCP_ARTICLE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                KDnuggets remote MCP roundup
+              </a>
+              . Use these in MCP-capable apps (e.g. Cursor, Claude Desktop); they
+              are listed here for discovery, not as live Caulfield chat tools.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {REMOTE_MCP_CATALOG.map((entry) => (
+                <RemoteMcpCatalogCard key={entry.id} entry={entry} />
+              ))}
             </div>
           </ConnectorSection>
         </div>
