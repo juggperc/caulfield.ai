@@ -2,6 +2,7 @@
 
 import type { UIMessage } from "ai";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
 import { getMessageText } from "./message-utils";
@@ -10,6 +11,19 @@ type MessageFeedProps = {
   readonly messages: UIMessage[];
   readonly status: "submitted" | "streaming" | "ready" | "error";
   readonly error: Error | undefined;
+};
+
+const parseApiError = (
+  error: Error,
+): { type: "quota" | "auth" | "generic"; message: string } => {
+  const msg = error.message ?? "";
+  if (msg.includes("QUOTA_EXCEEDED") || msg.includes("Free queries used") || msg.includes("Monthly query limit")) {
+    return { type: "quota", message: msg };
+  }
+  if (msg.includes("UNAUTHORIZED") || msg.includes("Sign in")) {
+    return { type: "auth", message: msg };
+  }
+  return { type: "generic", message: msg };
 };
 
 export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
@@ -84,11 +98,58 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
         })}
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error.message}
-          </p>
+          <ErrorBanner error={error} />
         ) : null}
       </div>
     </div>
   );
 };
+
+const ErrorBanner = ({ error }: { error: Error }) => {
+  const parsed = parseApiError(error);
+
+  if (parsed.type === "quota") {
+    return (
+      <div
+        className="rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+        role="alert"
+      >
+        <p className="text-sm font-medium text-destructive">Query limit reached</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {parsed.message.includes("Free queries")
+            ? "You\u2019ve used all free queries. Subscribe to continue using Caulfield.ai."
+            : "You\u2019ve reached your monthly query limit. Your quota will reset at the start of your next billing period."}
+        </p>
+        {parsed.message.includes("Free queries") ? (
+          <Link
+            href="/api/billing/checkout"
+            className="mt-3 inline-flex items-center rounded-md bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Subscribe — $20/mo
+          </Link>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (parsed.type === "auth") {
+    return (
+      <div
+        className="rounded-lg border border-border bg-muted/50 p-4"
+        role="alert"
+      >
+        <p className="text-sm font-medium text-foreground">Sign in required</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You need to sign in to use hosted AI features. Use the sidebar to sign in with your account.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="text-sm text-destructive" role="alert">
+      {parsed.message}
+    </p>
+  );
+};
+

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@/features/auth/session-context";
 import { useChatWithOpenRouter } from "@/features/ai-agent/useChatWithOpenRouter";
 import type { MemoryEntry } from "@/features/memory/memory-types";
 import { useMemory } from "@/features/memory/memory-provider";
@@ -15,37 +16,67 @@ type PublicConfig = {
 };
 
 export const ChatShell = () => {
+  const { user, status } = useSession();
   const { syncNotesFromAgent } = useNotes();
   const { replaceAll: syncMemoryFromAgent } = useMemory();
   const [cfg, setCfg] = useState<PublicConfig | null>(null);
-  const [sessionUser, setSessionUser] = useState<{ id: string } | null>(null);
   const [convId, setConvId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [historyReady, setHistoryReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
-      const c = await fetch("/api/config").then((r) => r.json() as Promise<PublicConfig>);
+    void (async () => {
+      const c = await fetch("/api/config", { credentials: "include" }).then(
+        (r) => r.json() as Promise<PublicConfig>,
+      );
       if (cancelled) return;
       setCfg(c);
-      if (!c.databaseConfigured) {
-        setHistoryReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cfg === null) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (!cfg.databaseConfigured) {
+        if (!cancelled) {
+          setConvId(null);
+          setInitialMessages([]);
+          setHistoryReady(true);
+        }
         return;
       }
-      const sess = await fetch("/api/auth/session").then(
-        (r) => r.json() as Promise<{ user?: { id?: string } }>,
-      );
-      if (cancelled) return;
-      if (!sess?.user?.id) {
-        setHistoryReady(true);
+
+      if (status === "loading") {
         return;
       }
-      setSessionUser({ id: sess.user.id });
-      const list = await fetch("/api/conversations", { credentials: "include" }).then(
-        (r) => r.json() as Promise<{ id: string }[]>,
-      );
+
+      if (!user?.id) {
+        if (!cancelled) {
+          setConvId(null);
+          setInitialMessages([]);
+          setHistoryReady(true);
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setHistoryReady(false);
+      }
+
+      const list = await fetch("/api/conversations", {
+        credentials: "include",
+      }).then((r) => r.json() as Promise<{ id: string }[]>);
       if (cancelled) return;
+
       let id = list[0]?.id;
       if (!id) {
         const created = await fetch("/api/conversations", {
@@ -54,25 +85,28 @@ export const ChatShell = () => {
         }).then((r) => r.json() as Promise<{ id: string }>);
         id = created.id;
       }
+      if (cancelled) return;
+
       const data = await fetch(`/api/conversations/${id}`, {
         credentials: "include",
-      }).then(
-        (r) => r.json() as Promise<{ messages: UIMessage[] }>,
-      );
+      }).then((r) => r.json() as Promise<{ messages: UIMessage[] }>);
       if (cancelled) return;
-      setConvId(id);
-      setInitialMessages(data.messages ?? []);
-      setHistoryReady(true);
+
+      if (!cancelled) {
+        setConvId(id);
+        setInitialMessages(data.messages ?? []);
+        setHistoryReady(true);
+      }
     };
+
     void run();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cfg, status, user?.id]);
 
   const persist =
-    Boolean(cfg?.databaseConfigured && sessionUser?.id && convId) &&
-    historyReady;
+    Boolean(cfg?.databaseConfigured && user?.id && convId) && historyReady;
 
   const handleNewChat = useCallback(async () => {
     if (!persist) return;

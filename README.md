@@ -66,11 +66,11 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 - Open **Memory** from the **chat bar** (brain icon) to edit durable facts and preferences. The chat agent has **`memory_*` tools** (list/read/search/create/update/delete) and changes **sync back** to the UI like notes.
 - Memory can participate in the **same RAG pipeline** as notes and research; use **chat settings** to turn memory or research **off for RAG only** (tools still receive the full lists).
 
-### Accounts & chat history (scaffold)
+### Accounts & chat history
 
-- **`SessionProvider`** (`src/features/auth/session-context.tsx`) — stub for **Vercel Auth** / session wiring.
+- **`SessionProvider`** (`src/features/auth/session-context.tsx`) — **NextAuth (Auth.js)** session for the client; sign-in/out from the sidebar.
 - **`getAccountStorageScope()`** (`src/features/auth/storage-scope.ts`) — namespaces **localStorage** keys (`anon` until sign-in).
-- **`chat-history-scaffold.ts`** — types and local key helpers for **per-scope conversation** storage; ready to hook to `useChat` and a future server sync.
+- **Server history:** With **`DATABASE_URL`** set, **`ChatShell`** loads the signed-in user’s conversations after auth resolves (including **sign-in after the first paint**), persists messages to **`/api/conversations/...`**, and enforces **quota** on **`/api/chat`** when **`OPENROUTER_API_KEY`** is set.
 
 ### Experience
 
@@ -125,8 +125,19 @@ Copy **[`.env.example`](./.env.example)** to **`.env.local`** (gitignored) for *
 When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** (GitHub or Google OAuth, **Dev login** in development, or **`AUTH_DEV_LOGIN=1`** to force Dev login even with OAuth configured). **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
 
 1. Run **`npm run db:push`** against your Postgres after setting `DATABASE_URL`.
-2. Set **`AUTH_SECRET`**, OAuth client IDs/secrets, and deploy **`/api/webhooks/polar`** URL in Polar (optional **`POLAR_WEBHOOK_SECRET`** — verify Polar’s signature format; adjust [`src/app/api/webhooks/polar/route.ts`](src/app/api/webhooks/polar/route.ts) if needed).
+2. Set **`AUTH_SECRET`**, OAuth client IDs/secrets, and deploy **`/api/webhooks/polar`** URL in Polar (using **Standard Webhooks** format with `v1` timestamped signatures). Set **`POLAR_WEBHOOK_SECRET`** to your endpoint secret (`whsec_...`).
 3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; checkout appends **`metadata[userId]`** for the webhook to attach subscriptions to users.
+4. **Rate Limiting**: Basic in-memory IP rate limiting protects the chat and research endpoints.
+
+### Dev testing (checkout, accounts, webhooks)
+
+Only when **`NODE_ENV=development`** (`npm run dev`):
+
+1. Open **[http://localhost:3000/dev](http://localhost:3000/dev)** — session controls, live quota snapshot, raw `billing_subscription` / `user_usage` rows, and **quick simulations** (grant/cancel subscription, reset or exhaust usage, expire billing period).
+2. **Checkout without Polar:** leave **`POLAR_CHECKOUT_URL`** unset; **Subscribe** (sidebar) or **`GET /api/billing/checkout`** redirects to **`/api/dev/billing/mock-checkout`**, which grants a mock active subscription and sends you back to the app.
+3. **Webhook shape:** paste JSON into the dev page or **`POST /api/dev/billing/webhook-body`** — same persistence as **`/api/webhooks/polar`** but **no HMAC** (localhost-only; never enabled in production).
+4. **Authenticated APIs:** **`GET /api/dev/billing/state`** and **`POST /api/dev/billing/simulate`** require a signed-in user and Postgres (**`DATABASE_URL`** + **`npm run db:push`**).
+5. **Testing**: Run `npm run test` to execute Vitest unit tests against the webhook parsers and quota boundary logic.
 
 ### BYO OpenRouter (no server key)
 
@@ -152,9 +163,11 @@ If **`OPENROUTER_API_KEY`** is unset, behavior matches the original app: open **
 ```text
 src/
 ├── app/                 # App Router — page, layout, globals, API routes
+│   ├── dev/             # /dev billing & account tools (development only)
 │   └── api/
 │       ├── auth/        # NextAuth / Auth.js
 │       ├── billing/     # Quota + Polar checkout redirect
+│       ├── dev/         # Dev-only billing APIs (mock checkout, simulate, …)
 │       ├── chat/        # Streaming chat + tools (OpenRouter)
 │       ├── config/      # Public flags (hosted mode, defaults)
 │       ├── conversations/# Server-backed chat history (Postgres)

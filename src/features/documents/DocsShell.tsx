@@ -224,8 +224,8 @@ export const DocsShell = () => {
     status === "streaming";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-muted">
-      <header className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-2">
+    <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
+      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-sidebar px-3 py-2">
         <WorkspaceTabButton
           active={workspaceTab === "docs"}
           icon={<LayoutGrid className="size-4 opacity-70" aria-hidden />}
@@ -243,7 +243,7 @@ export const DocsShell = () => {
       <div className="flex min-h-0 flex-1">
         {workspaceTab === "docs" ? (
           <>
-        <div className="flex w-[min(100%,260px)] shrink-0 flex-col border-r border-border bg-muted">
+        <div className="flex w-[min(100%,260px)] shrink-0 flex-col border-r border-border bg-sidebar">
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
             <span className="text-[13px] font-semibold tracking-tight text-foreground">
               Documents
@@ -491,8 +491,8 @@ const WorkspaceTabButton = ({
       onClick={onClick}
       className={
         active
-          ? "flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1.5 text-left text-[13px] font-medium text-foreground shadow-sm ring-1 ring-border"
-          : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-accent/50"
+          ? "flex items-center gap-1.5 rounded-md bg-sidebar-accent px-2.5 py-1.5 text-left text-[13px] font-medium text-sidebar-foreground"
+          : "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
       }
       aria-current={active ? "page" : undefined}
     >

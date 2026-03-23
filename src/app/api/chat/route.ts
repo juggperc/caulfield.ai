@@ -575,16 +575,21 @@ ${truncate(preview, 14_000)}`;
       { tools },
     );
 
-    if (quotaEnforced && session?.user?.id) {
-      await consumeChatQuery(session.user.id);
-    }
-
     const result = streamText({
       model: openrouter(modelId),
       system,
       messages: coreMessages,
       tools,
       stopWhen: stepCountIs(14),
+      onFinish: async () => {
+        if (quotaEnforced && session?.user?.id) {
+          try {
+            await consumeChatQuery(session.user.id);
+          } catch (e) {
+            console.error("[chat] Failed to consume quota onFinish", e);
+          }
+        }
+      },
     });
 
     return result.toUIMessageStreamResponse();

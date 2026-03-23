@@ -61,7 +61,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-if (process.env.AUTH_DEV_LOGIN === "1") {
+if (isDev && process.env.AUTH_DEV_LOGIN === "1") {
   providers.push(devCredentialsProvider);
 } else if (isDev && providers.length === 0) {
   providers.push(devCredentialsProvider);

@@ -1,10 +1,12 @@
-import { db } from "@/lib/db";
-import { billingSubscription } from "@/lib/db/schema";
+import { applyPolarWebhookPayload } from "@/lib/billing/polar-webhook-sync";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 /**
- * Polar webhook — shape varies by API version; we branch on common fields.
+ * Polar webhook — Standard Webhooks format.
+ * Headers: webhook-id, webhook-timestamp, webhook-signature
+ * Signature: v1,<base64-hmac> where HMAC signs "{id}.{timestamp}.{body}"
+ *
  * Configure POLAR_WEBHOOK_SECRET in Polar dashboard and set the same value here.
  */
 export const POST = async (req: Request) => {
@@ -12,15 +14,54 @@ export const POST = async (req: Request) => {
   const raw = await req.text();
 
   if (secret) {
-    const sig = req.headers.get("webhook-signature");
-    if (!sig) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+    const webhookId = req.headers.get("webhook-id");
+    const webhookTimestamp = req.headers.get("webhook-timestamp");
+    const webhookSignature = req.headers.get("webhook-signature");
+
+    if (!webhookId || !webhookTimestamp || !webhookSignature) {
+      console.warn("[polar-webhook] Missing required Standard Webhooks headers");
+      return NextResponse.json(
+        { error: "Missing webhook signature headers" },
+        { status: 401 },
+      );
     }
-    const expected = createHmac("sha256", secret).update(raw).digest("hex");
-    const ok =
-      sig.length === expected.length &&
-      timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-    if (!ok) {
+
+    // Guard against replay: reject timestamps older than 5 minutes
+    const ts = parseInt(webhookTimestamp, 10);
+    if (Number.isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) {
+      console.warn("[polar-webhook] Timestamp outside tolerance window");
+      return NextResponse.json(
+        { error: "Webhook timestamp too old or invalid" },
+        { status: 401 },
+      );
+    }
+
+    // Standard Webhooks: sign "{id}.{timestamp}.{body}" with the secret
+    // Secret may be prefixed with "whsec_" and base64-encoded
+    const secretBytes = secret.startsWith("whsec_")
+      ? Buffer.from(secret.slice(6), "base64")
+      : Buffer.from(secret, "utf-8");
+
+    const signPayload = `${webhookId}.${webhookTimestamp}.${raw}`;
+    const expectedSig = createHmac("sha256", secretBytes)
+      .update(signPayload)
+      .digest("base64");
+
+    // webhook-signature can contain multiple space-separated sigs (v1,<sig> v1,<sig2>)
+    const signatures = webhookSignature.split(" ");
+    const verified = signatures.some((sigEntry) => {
+      const parts = sigEntry.split(",");
+      if (parts[0] !== "v1" || !parts[1]) return false;
+      const candidate = parts[1];
+      if (candidate.length !== expectedSig.length) return false;
+      return timingSafeEqual(
+        Buffer.from(candidate, "base64"),
+        Buffer.from(expectedSig, "base64"),
+      );
+    });
+
+    if (!verified) {
+      console.warn("[polar-webhook] Signature verification failed");
       return NextResponse.json({ error: "Bad signature" }, { status: 401 });
     }
   }
@@ -32,78 +73,9 @@ export const POST = async (req: Request) => {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!db) {
+  const result = await applyPolarWebhookPayload(payload);
+  if (result.reason === "no_database") {
     return NextResponse.json({ ok: true, skipped: "no_database" });
-  }
-
-  const obj = payload as Record<string, unknown>;
-  const type = typeof obj.type === "string" ? obj.type : "";
-  const data = (obj.data ?? obj.payload ?? obj) as Record<string, unknown>;
-
-  const metadata = data.metadata as Record<string, unknown> | undefined;
-  const userId =
-    typeof metadata?.userId === "string"
-      ? metadata.userId
-      : typeof data.user_id === "string"
-        ? data.user_id
-        : null;
-
-  const customerId =
-    typeof data.customer_id === "string"
-      ? data.customer_id
-      : typeof data.customerId === "string"
-        ? data.customerId
-        : null;
-
-  const subscriptionId =
-    typeof data.subscription_id === "string"
-      ? data.subscription_id
-      : typeof data.id === "string"
-        ? data.id
-        : null;
-
-  let periodEnd: Date | null = null;
-  const pe =
-    data.current_period_end ?? data.currentPeriodEnd ?? data.ends_at;
-  if (typeof pe === "string") {
-    periodEnd = new Date(pe);
-  } else if (typeof pe === "number") {
-    periodEnd = new Date(pe * 1000);
-  }
-
-  const active =
-    type.includes("active") ||
-    type.includes("created") ||
-    data.status === "active";
-
-  const inactive =
-    type.includes("canceled") ||
-    type.includes("cancelled") ||
-    type.includes("revoked") ||
-    data.status === "canceled";
-
-  if (userId && (active || inactive || customerId)) {
-    const status = inactive ? "inactive" : active ? "active" : "inactive";
-    await db
-      .insert(billingSubscription)
-      .values({
-        userId,
-        polarCustomerId: customerId ?? null,
-        polarSubscriptionId: subscriptionId ?? null,
-        status,
-        currentPeriodEnd: periodEnd,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: billingSubscription.userId,
-        set: {
-          polarCustomerId: customerId ?? null,
-          polarSubscriptionId: subscriptionId ?? null,
-          status,
-          currentPeriodEnd: periodEnd,
-          updatedAt: new Date(),
-        },
-      });
   }
 
   return NextResponse.json({ ok: true });

@@ -14,6 +14,7 @@ import { MemoryProvider } from "@/features/memory/memory-provider";
 import { NotesProvider } from "@/features/notes/notes-context";
 import { NotesShell } from "@/features/notes/NotesShell";
 import { ResearchProvider } from "@/features/research/research-provider";
+import { AccountSettings } from "@/features/auth/AccountSettings";
 import {
   MAIN_OFFSET_CLASS,
   Sidebar,
@@ -51,8 +52,10 @@ export const AppLayout = () => {
                           <DocsShell />
                         ) : panel === "library" ? (
                           <LibraryShell />
-                        ) : (
+                        ) : panel === "marketplace" ? (
                           <MarketplaceShell />
+                        ) : (
+                          <AccountSettings />
                         )}
                       </main>
                     </div>

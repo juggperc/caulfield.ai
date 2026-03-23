@@ -81,6 +81,10 @@ export const checkChatQuota = async (userId: string): Promise<QuotaCheck> => {
 
   if (subscribed) {
     if (paidRemaining <= 0) {
+      console.warn(
+        "[quota] Denied — paid limit reached",
+        JSON.stringify({ subscribed: true, paidRemaining: 0 }),
+      );
       return {
         ok: false,
         reason: "no_credits",
@@ -94,6 +98,10 @@ export const checkChatQuota = async (userId: string): Promise<QuotaCheck> => {
   }
 
   if (freeRemaining <= 0) {
+    console.warn(
+      "[quota] Denied — free limit reached",
+      JSON.stringify({ subscribed: false, freeRemaining: 0 }),
+    );
     return {
       ok: false,
       reason: "no_credits",

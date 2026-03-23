@@ -13,10 +13,13 @@ import {
   LogIn,
   LogOut,
   MessageSquare,
+  Settings,
   Store,
+  Plus,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Logo } from "./Logo";
 
 const SIDEBAR_WIDTH = "18rem";
@@ -35,6 +38,32 @@ type QuotaJson = {
 export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
   const { user, status, signIn, signOut } = useSession();
   const [quota, setQuota] = useState<QuotaJson | null>(null);
+  const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
+  const [dbConfigured, setDbConfigured] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/config")
+      .then((r) => r.json())
+      .then((j: { hasDb: boolean }) => setDbConfigured(j.hasDb))
+      .catch(() => {});
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    if (!user?.id || !dbConfigured) return;
+    try {
+      const res = await fetch("/api/conversations", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data);
+      }
+    } catch (err) {
+      console.error("Failed to load conversations", err);
+    }
+  }, [user?.id, dbConfigured]);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -76,8 +105,49 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
           onClick={() => onPanelChange("chat")}
         >
           <MessageSquare className="size-4 shrink-0 opacity-70" aria-hidden />
-          Chat
+          <div className="flex flex-1 items-center justify-between">
+            <span>Chat</span>
+            {user?.id && dbConfigured && activePanel === "chat" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Dispatch custom event that ChatShell could optionally listen to 
+                  // or let ChatShell manage new chats (we'll just reset URL/state eventually)
+                  window.dispatchEvent(new CustomEvent("caulfield:new-chat"));
+                }}
+                className="rounded hover:bg-sidebar/50 p-0.5"
+                title="New chat"
+              >
+                <Plus className="size-3.5 opacity-70" />
+              </button>
+            ) : null}
+          </div>
         </motion.button>
+        {user?.id && dbConfigured && conversations.length > 0 && activePanel === "chat" ? (
+          <div className="mb-2 pl-6 pr-2">
+            <div className="mt-1 flex flex-col gap-0.5 border-l border-sidebar-border/50 pl-2">
+              {conversations.slice(0, 10).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground truncate"
+                  title={c.title}
+                  onClick={() => {
+                    // ChatShell needs to update its active instance.
+                    // Emitting event to set the active conversation.
+                    window.dispatchEvent(
+                      new CustomEvent("caulfield:load-chat", { detail: { id: c.id } })
+                    );
+                  }}
+                >
+                  <MessageCircle className="size-3 shrink-0 opacity-50" />
+                  <span className="truncate">{c.title || "New chat"}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <motion.button
           type="button"
           className={
@@ -152,6 +222,22 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
           <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Account
           </p>
+          <motion.button
+            type="button"
+            className={
+              activePanel === "settings"
+                ? "mb-4 flex w-full items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left text-sm font-medium text-sidebar-foreground"
+                : "mb-4 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            }
+            whileHover={{ x: 2 }}
+            whileTap={{ scale: 0.99 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            aria-current={activePanel === "settings" ? "page" : undefined}
+            onClick={() => onPanelChange("settings")}
+          >
+            <Settings className="size-4 shrink-0 opacity-70" aria-hidden />
+            Settings
+          </motion.button>
           {status === "loading" ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
           ) : user ? (

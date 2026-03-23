@@ -89,9 +89,6 @@ Rules:
   const prompt = `Research topic:\n"""${topic}"""\n\nGather sources, save snippets with research_save_snippet, then summarize key takeaways for the user.`;
 
   try {
-    if (quotaEnforced && session?.user?.id) {
-      await consumeChatQuery(session.user.id);
-    }
     const openrouter = createOpenRouter({ apiKey });
     const { text } = await generateText({
       model: openrouter(modelId),
@@ -100,6 +97,14 @@ Rules:
       tools,
       stopWhen: stepCountIs(16),
     });
+
+    if (quotaEnforced && session?.user?.id) {
+      try {
+        await consumeChatQuery(session.user.id);
+      } catch (e) {
+        console.error("[research] Failed to consume quota after generateText", e);
+      }
+    }
 
     return Response.json({
       ok: true as const,
