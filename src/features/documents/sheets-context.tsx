@@ -1,0 +1,197 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { SHEETS_LOCAL_STORAGE_KEY } from "./sheets-constants";
+import {
+  normalizeWorkspaceSheet,
+  normalizeWorkspaceSheetList,
+} from "./sheets-normalize";
+import type { WorkspaceSheet } from "./sheets-types";
+
+type SheetsContextValue = {
+  sheets: WorkspaceSheet[];
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+  selectedSheet: WorkspaceSheet | undefined;
+  createSheet: () => void;
+  deleteSheet: (id: string) => void;
+  updateSheetTitle: (id: string, title: string) => void;
+  updateCell: (id: string, r: number, c: number, value: string) => void;
+  applyAgentSheetUpdate: (
+    id: string,
+    rows: string[][],
+    newRevision: number,
+  ) => void;
+};
+
+const SheetsContext = createContext<SheetsContextValue | null>(null);
+
+export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
+  const [sheets, setSheets] = useState<WorkspaceSheet[]>([]);
+  const [selectionUser, setSelectionUser] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const raw = localStorage.getItem(SHEETS_LOCAL_STORAGE_KEY);
+        if (!raw) {
+          setHydrated(true);
+          return;
+        }
+        const parsed = JSON.parse(raw) as unknown;
+        setSheets(normalizeWorkspaceSheetList(parsed));
+      } catch {
+        /* ignore */
+      }
+      setHydrated(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem(SHEETS_LOCAL_STORAGE_KEY, JSON.stringify(sheets));
+  }, [sheets, hydrated]);
+
+  const sorted = useMemo(
+    () => [...sheets].sort((a, b) => b.updatedAt - a.updatedAt),
+    [sheets],
+  );
+
+  const selectedId = useMemo(() => {
+    if (sheets.length === 0) return null;
+    if (
+      selectionUser != null &&
+      sheets.some((s) => s.id === selectionUser)
+    ) {
+      return selectionUser;
+    }
+    return sorted[0]?.id ?? null;
+  }, [sheets, selectionUser, sorted]);
+
+  const setSelectedId = useCallback((id: string | null) => {
+    setSelectionUser(id);
+  }, []);
+
+  const selectedSheet = sheets.find((s) => s.id === selectedId);
+
+  const createSheet = useCallback(() => {
+    const now = Date.now();
+    const id = crypto.randomUUID();
+    const base = normalizeWorkspaceSheet({
+      id,
+      title: "Untitled sheet",
+      createdAt: now,
+      updatedAt: now,
+      revision: 0,
+      rows: [],
+    });
+    if (!base) return;
+    setSheets((prev) => [base, ...prev]);
+    setSelectionUser(id);
+  }, []);
+
+  const deleteSheet = useCallback((id: string) => {
+    setSelectionUser((cur) => (cur === id ? null : cur));
+    setSheets((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const updateSheetTitle = useCallback((id: string, title: string) => {
+    setSheets((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        return {
+          ...s,
+          title: title.trim() || "Untitled sheet",
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, []);
+
+  const updateCell = useCallback(
+    (id: string, r: number, c: number, value: string) => {
+      setSheets((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          const rows = s.rows.map((row) => [...row]);
+          while (rows.length <= r) {
+            rows.push(
+              Array.from(
+                { length: rows[0]?.length ?? 12 },
+                () => "",
+              ),
+            );
+          }
+          const row = [...rows[r]];
+          while (row.length <= c) row.push("");
+          row[c] = value;
+          rows[r] = row;
+          return { ...s, rows, updatedAt: Date.now() };
+        }),
+      );
+    },
+    [],
+  );
+
+  const applyAgentSheetUpdate = useCallback(
+    (id: string, rows: string[][], newRevision: number) => {
+      setSheets((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          return {
+            ...s,
+            rows,
+            revision: newRevision,
+            updatedAt: Date.now(),
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const value = useMemo(
+    () => ({
+      sheets,
+      selectedId,
+      setSelectedId,
+      selectedSheet,
+      createSheet,
+      deleteSheet,
+      updateSheetTitle,
+      updateCell,
+      applyAgentSheetUpdate,
+    }),
+    [
+      sheets,
+      selectedId,
+      setSelectedId,
+      selectedSheet,
+      createSheet,
+      deleteSheet,
+      updateSheetTitle,
+      updateCell,
+      applyAgentSheetUpdate,
+    ],
+  );
+
+  return (
+    <SheetsContext.Provider value={value}>{children}</SheetsContext.Provider>
+  );
+};
+
+export const useSheets = () => {
+  const ctx = useContext(SheetsContext);
+  if (!ctx) {
+    throw new Error("useSheets must be used within SheetsProvider");
+  }
+  return ctx;
+};
