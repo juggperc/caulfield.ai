@@ -47,6 +47,9 @@ export const Sidebar = ({
   const [quota, setQuota] = useState<QuotaJson | null>(null);
   const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
   const [dbConfigured, setDbConfigured] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     void fetch("/api/config")
@@ -72,6 +75,24 @@ export const Sidebar = ({
 
   useEffect(() => {
     void loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    const onActive = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (typeof id === "string" && id.length > 0) {
+        setActiveConversationId(id);
+      }
+    };
+    const onRefresh = () => {
+      void loadConversations();
+    };
+    window.addEventListener("caulfield:active-conversation", onActive);
+    window.addEventListener("caulfield:conversations-changed", onRefresh);
+    return () => {
+      window.removeEventListener("caulfield:active-conversation", onActive);
+      window.removeEventListener("caulfield:conversations-changed", onRefresh);
+    };
   }, [loadConversations]);
 
   useEffect(() => {
@@ -144,24 +165,39 @@ export const Sidebar = ({
         {user?.id && dbConfigured && conversations.length > 0 && activePanel === "chat" ? (
           <div className="mb-2 pl-6 pr-2">
             <div className="mt-1 flex flex-col gap-0.5 border-l border-sidebar-border/50 pl-2">
-              {conversations.slice(0, 10).map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground truncate"
-                  title={c.title}
-                  onClick={() => {
-                    // ChatShell needs to update its active instance.
-                    // Emitting event to set the active conversation.
-                    window.dispatchEvent(
-                      new CustomEvent("caulfield:load-chat", { detail: { id: c.id } })
-                    );
-                  }}
-                >
-                  <MessageCircle className="size-3 shrink-0 opacity-50" />
-                  <span className="truncate">{c.title || "New chat"}</span>
-                </button>
-              ))}
+              {conversations.slice(0, 10).map((c) => {
+                const active = c.id === activeConversationId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors truncate",
+                      active
+                        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    )}
+                    title={c.title}
+                    aria-current={active ? "true" : undefined}
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new CustomEvent("caulfield:load-chat", {
+                          detail: { id: c.id },
+                        }),
+                      );
+                    }}
+                  >
+                    <MessageCircle
+                      className={cn(
+                        "size-3 shrink-0",
+                        active ? "opacity-80" : "opacity-50",
+                      )}
+                      aria-hidden
+                    />
+                    <span className="truncate">{c.title || "New chat"}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : null}

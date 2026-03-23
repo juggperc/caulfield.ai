@@ -75,6 +75,36 @@ const writeSnooze = () => {
   }
 };
 
+/** Compact Australian flag for inline UI (simplified geometry). */
+const AustraliaFlagSvg = ({ className }: { readonly className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 12"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden
+  >
+    <rect width="24" height="12" fill="#012169" />
+    <path d="M0 0h12v6H0z" fill="#012169" />
+    <path
+      d="M0 0l12 6M12 0L0 6"
+      stroke="#fff"
+      strokeWidth="1.2"
+    />
+    <path
+      d="M0 0l12 6M12 0L0 6"
+      stroke="#E4002B"
+      strokeWidth="0.55"
+    />
+    <path d="M6 0v6M0 3h12" stroke="#fff" strokeWidth="2" />
+    <path d="M6 0v6M0 3h12" stroke="#E4002B" strokeWidth="1" />
+    <path fill="#fff" d="M17.2 2.1l.35 1.05h1.1l-.9.65.35 1.05-.9-.65-.9.65.35-1.05-.9-.65h1.1z" />
+    <circle cx="19.5" cy="7.5" r="0.45" fill="#fff" />
+    <circle cx="18.2" cy="9.2" r="0.45" fill="#fff" />
+    <circle cx="20.8" cy="9.2" r="0.45" fill="#fff" />
+    <circle cx="19.5" cy="10.2" r="0.45" fill="#fff" />
+  </svg>
+);
+
 export const PremiumUpgradePromo = () => {
   const { user } = useSession();
   const reduceMotion = useReducedMotion();
@@ -281,7 +311,17 @@ const PremiumDialogInner = ({ onSnooze }: { readonly onSnooze: () => void }) => 
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
+        <div className="flex flex-col gap-3 border-t border-border pt-4">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <span
+              className="flex size-[1.125rem] shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-card shadow-sm"
+              role="img"
+              aria-label="Australia"
+            >
+              <AustraliaFlagSvg className="size-full" />
+            </span>
+            <span>Made in Australia</span>
+          </div>
           <Link
             href="/api/billing/checkout"
             className={cn(

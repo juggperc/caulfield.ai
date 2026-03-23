@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session-context";
 import {
   readLastServerConversationId,
@@ -11,7 +12,8 @@ import { useMemory } from "@/features/memory/memory-provider";
 import { useNotes } from "@/features/notes/notes-context";
 import type { Note } from "@/features/notes/types";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getOrCreateLocalConversationId,
   loadConversationMessages,
@@ -26,6 +28,23 @@ type PublicConfig = {
   databaseConfigured: boolean;
 };
 
+const dispatchActiveConversation = (id: string) => {
+  window.dispatchEvent(
+    new CustomEvent("caulfield:active-conversation", { detail: { id } }),
+  );
+};
+
+const ChatLoadingSkeleton = () => (
+  <div className="flex min-h-0 flex-1 flex-col bg-background px-3 py-6 md:px-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="h-4 w-28 animate-pulse rounded-md bg-muted" />
+      <div className="h-[4.5rem] w-[72%] self-end animate-pulse rounded-2xl bg-muted/80" />
+      <div className="h-28 w-full animate-pulse rounded-2xl bg-muted/70" />
+      <div className="h-20 w-[85%] self-end animate-pulse rounded-2xl bg-muted/80" />
+    </div>
+  </div>
+);
+
 export const ChatShell = () => {
   const { user, status } = useSession();
   const { syncNotesFromAgent } = useNotes();
@@ -36,6 +55,8 @@ export const ChatShell = () => {
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyRetryNonce, setHistoryRetryNonce] = useState(0);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [newChatError, setNewChatError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +72,95 @@ export const ChatShell = () => {
     })();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  const loadServerConversation = useCallback(
+    async (id: string) => {
+      if (!cfg?.databaseConfigured || !user?.id) return;
+      setHistoryReady(false);
+      setHistoryError(null);
+      try {
+        const dataRes = await fetch(`/api/conversations/${id}`, {
+          credentials: "include",
+        });
+        if (!dataRes.ok) {
+          setHistoryError("Could not open that conversation. Try again.");
+          setHistoryReady(true);
+          return;
+        }
+        const data = (await dataRes.json()) as { messages?: UIMessage[] };
+        writeLastServerConversationId(id);
+        setConvId(id);
+        setInitialMessages(data.messages ?? []);
+        setHistoryReady(true);
+      } catch {
+        setHistoryError("Could not open that conversation. Try again.");
+        setHistoryReady(true);
+      }
+    },
+    [cfg?.databaseConfigured, user?.id],
+  );
+
+  const handleNewChat = useCallback(async () => {
+    setNewChatError(null);
+    if (cfg?.databaseConfigured && user?.id) {
+      setIsCreatingChat(true);
+      try {
+        const postRes = await fetch("/api/conversations", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!postRes.ok) {
+          setNewChatError("Could not start a new chat. Try again.");
+          return;
+        }
+        const created = (await postRes.json()) as { id?: string };
+        if (!created.id) {
+          setNewChatError("Could not start a new chat. Try again.");
+          return;
+        }
+        writeLastServerConversationId(created.id);
+        setConvId(created.id);
+        setInitialMessages([]);
+        window.dispatchEvent(new CustomEvent("caulfield:conversations-changed"));
+      } finally {
+        setIsCreatingChat(false);
+      }
+      return;
+    }
+    if (cfg && !cfg.databaseConfigured) {
+      const next = crypto.randomUUID();
+      setLocalActiveConversationId(next);
+      upsertConversationMeta({
+        id: next,
+        title: "New chat",
+        updatedAt: Date.now(),
+      });
+      setConvId(next);
+      setInitialMessages([]);
+    }
+  }, [cfg, user?.id]);
+
+  const handleNewChatRef = useRef(handleNewChat);
+  handleNewChatRef.current = handleNewChat;
+  const loadServerConversationRef = useRef(loadServerConversation);
+  loadServerConversationRef.current = loadServerConversation;
+
+  useEffect(() => {
+    const onNewChatEvent = () => {
+      void handleNewChatRef.current();
+    };
+    const onLoadChatEvent = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (typeof id !== "string" || !id.trim()) return;
+      void loadServerConversationRef.current(id);
+    };
+    window.addEventListener("caulfield:new-chat", onNewChatEvent);
+    window.addEventListener("caulfield:load-chat", onLoadChatEvent);
+    return () => {
+      window.removeEventListener("caulfield:new-chat", onNewChatEvent);
+      window.removeEventListener("caulfield:load-chat", onLoadChatEvent);
     };
   }, []);
 
@@ -159,37 +269,15 @@ export const ChatShell = () => {
     };
   }, [cfg, status, user?.id, historyRetryNonce]);
 
+  useEffect(() => {
+    if (!historyReady || !convId) return;
+    dispatchActiveConversation(convId);
+  }, [historyReady, convId]);
+
   const persistServer =
     Boolean(cfg?.databaseConfigured && user?.id && convId) && historyReady;
   const persistLocal =
     Boolean(cfg && !cfg.databaseConfigured && convId) && historyReady;
-
-  const handleNewChat = useCallback(async () => {
-    if (cfg?.databaseConfigured && user?.id) {
-      const postRes = await fetch("/api/conversations", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!postRes.ok) return;
-      const created = (await postRes.json()) as { id?: string };
-      if (!created.id) return;
-      writeLastServerConversationId(created.id);
-      setConvId(created.id);
-      setInitialMessages([]);
-      return;
-    }
-    if (cfg && !cfg.databaseConfigured) {
-      const next = crypto.randomUUID();
-      setLocalActiveConversationId(next);
-      upsertConversationMeta({
-        id: next,
-        title: "New chat",
-        updatedAt: Date.now(),
-      });
-      setConvId(next);
-      setInitialMessages([]);
-    }
-  }, [cfg, user?.id]);
 
   const handleHistoryRetry = useCallback(() => {
     setHistoryError(null);
@@ -197,11 +285,7 @@ export const ChatShell = () => {
   }, []);
 
   if (!historyReady) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-background text-sm text-muted-foreground">
-        Loading chat…
-      </div>
-    );
+    return <ChatLoadingSkeleton />;
   }
 
   if (historyError) {
@@ -211,13 +295,9 @@ export const ChatShell = () => {
         role="alert"
       >
         <p className="text-sm text-muted-foreground">{historyError}</p>
-        <button
-          type="button"
-          onClick={handleHistoryRetry}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <Button type="button" onClick={handleHistoryRetry}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -232,6 +312,8 @@ export const ChatShell = () => {
       persistLocalHistory={persistLocal}
       initialMessages={initialMessages}
       onNewChat={showNewChat ? handleNewChat : undefined}
+      isCreatingChat={isCreatingChat}
+      newChatError={newChatError}
       syncNotesFromAgent={syncNotesFromAgent}
       syncMemoryFromAgent={syncMemoryFromAgent}
     />
@@ -243,7 +325,9 @@ type InnerProps = {
   readonly persistServerHistory: boolean;
   readonly persistLocalHistory: boolean;
   readonly initialMessages: UIMessage[];
-  readonly onNewChat?: () => void;
+  readonly onNewChat?: () => void | Promise<void>;
+  readonly isCreatingChat: boolean;
+  readonly newChatError: string | null;
   readonly syncNotesFromAgent: (notes: Note[]) => void;
   readonly syncMemoryFromAgent: (m: MemoryEntry[]) => void;
 };
@@ -254,6 +338,8 @@ const ChatShellInner = ({
   persistLocalHistory,
   initialMessages,
   onNewChat,
+  isCreatingChat,
+  newChatError,
   syncNotesFromAgent,
   syncMemoryFromAgent,
 }: InnerProps) => {
@@ -282,14 +368,33 @@ const ChatShellInner = ({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-background">
       {onNewChat ? (
-        <div className="flex shrink-0 items-center justify-end border-b border-border px-3 py-2">
-          <button
-            type="button"
-            onClick={() => void onNewChat()}
-            className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            New chat
-          </button>
+        <div className="flex shrink-0 flex-col gap-1 border-b border-border px-3 py-2">
+          {newChatError ? (
+            <p
+              className="text-center text-xs text-destructive"
+              role="alert"
+            >
+              {newChatError}
+            </p>
+          ) : null}
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+              disabled={isCreatingChat}
+              onClick={() => void onNewChat()}
+            >
+              {isCreatingChat ? (
+                <Loader2
+                  className="size-3.5 shrink-0 animate-spin"
+                  aria-hidden
+                />
+              ) : null}
+              New chat
+            </Button>
+          </div>
         </div>
       ) : null}
       <MessageFeed messages={messages} status={status} error={error} />
