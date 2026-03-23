@@ -241,7 +241,16 @@ export const SignInClient = () => {
           }),
         });
         if (!res.ok) {
-          setFormError("Could not register. Try a different username.");
+          let message = "Could not register. Try again.";
+          try {
+            const data = (await res.json()) as { error?: unknown };
+            if (typeof data.error === "string" && data.error.trim()) {
+              message = data.error;
+            }
+          } catch {
+            /* keep default */
+          }
+          setFormError(message);
           resetAltcha();
           return;
         }
