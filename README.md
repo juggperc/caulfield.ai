@@ -118,9 +118,11 @@ npm run start
 
 Copy **[`.env.example`](./.env.example)** to **`.env.local`** (gitignored) for **auth, database, hosted OpenRouter, and Polar**. See variable comments there.
 
+**Local dev without `.env.local`:** `npm run dev` uses a built-in **`AUTH_SECRET`** and enables **“Dev login”** (Credentials) when no GitHub/Google env vars are set, so **`/api/auth/session`** works out of the box. Set **`AUTH_SECRET`** in `.env.local` for a stable secret across restarts.
+
 ### Hosted mode (recommended for production)
 
-When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** (GitHub or Google OAuth, or **`AUTH_DEV_LOGIN=1`** for local dev). **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
+When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** (GitHub or Google OAuth, **Dev login** in development, or **`AUTH_DEV_LOGIN=1`** to force Dev login even with OAuth configured). **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
 
 1. Run **`npm run db:push`** against your Postgres after setting `DATABASE_URL`.
 2. Set **`AUTH_SECRET`**, OAuth client IDs/secrets, and deploy **`/api/webhooks/polar`** URL in Polar (optional **`POLAR_WEBHOOK_SECRET`** — verify Polar’s signature format; adjust [`src/app/api/webhooks/polar/route.ts`](src/app/api/webhooks/polar/route.ts) if needed).
