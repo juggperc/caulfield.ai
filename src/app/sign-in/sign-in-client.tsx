@@ -40,6 +40,9 @@ export const SignInClient = () => {
     boolean | null
   >(null);
   const [altchaDevBypass, setAltchaDevBypass] = useState(false);
+  const [databaseConfigured, setDatabaseConfigured] = useState<boolean | null>(
+    null,
+  );
 
   const [panel, setPanel] = useState<"signin" | "register">("signin");
   const [username, setUsername] = useState("");
@@ -87,9 +90,13 @@ export const SignInClient = () => {
           j.credentialAuthConfigured ?? j.authProvidersConfigured ?? false;
         setCredentialAuthConfigured(Boolean(cred));
         setAltchaDevBypass(Boolean(j.altchaDevBypass));
+        setDatabaseConfigured(Boolean(j.databaseConfigured));
       })
       .catch(() => {
-        if (!cancelled) setCredentialAuthConfigured(null);
+        if (!cancelled) {
+          setCredentialAuthConfigured(null);
+          setDatabaseConfigured(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -457,10 +464,48 @@ export const SignInClient = () => {
                 </form>
               </>
             ) : !loadError ? (
-              <p className="text-center text-sm text-muted-foreground">
-                No credential provider is available. Configure the server
-                environment and try again.
-              </p>
+              <div
+                className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground"
+                role="status"
+              >
+                <p className="font-medium text-foreground">
+                  Sign-in is not wired up on this deployment
+                </p>
+                {databaseConfigured === false ? (
+                  <p>
+                    Add a Postgres URL to the server environment (
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      DATABASE_URL
+                    </code>{" "}
+                    or{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      POSTGRES_URL
+                    </code>
+                    ), run{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      npm run db:push
+                    </code>
+                    , then redeploy. Username/password auth only registers when
+                    the app can connect to the database.
+                  </p>
+                ) : (
+                  <p>
+                    The credentials provider did not load. Confirm{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      DATABASE_URL
+                    </code>
+                    ,{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      AUTH_SECRET
+                    </code>
+                    , and{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      ALTCHA_HMAC_KEY
+                    </code>{" "}
+                    on the host, redeploy, and check server logs.
+                  </p>
+                )}
+              </div>
             ) : null}
 
             <p className="text-center text-xs text-muted-foreground">
