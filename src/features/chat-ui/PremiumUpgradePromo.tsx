@@ -110,22 +110,24 @@ export const PremiumUpgradePromo = () => {
   }, [user?.id]);
 
   const snoozed = Date.now() < snoozeUntil;
-  const hasPremiumAccess =
-    quota?.unlimited === true ||
-    (quota?.subscribed === true && (quota.paidRemaining ?? 0) > 0);
+  /** Unlimited users still see the pill; hide only for paying subs with quota left. */
+  const hidePromoForQuota =
+    quota?.unlimited !== true &&
+    quota?.subscribed === true &&
+    (quota.paidRemaining ?? 0) > 0;
 
   useEffect(() => {
     if (dialogOpen) {
       setTeaserVisible(false);
       return;
     }
-    if (!quotaLoaded || hasPremiumAccess || snoozed) {
+    if (!quotaLoaded || hidePromoForQuota || snoozed) {
       setTeaserVisible(false);
       return;
     }
     const t = window.setTimeout(() => setTeaserVisible(true), 1200);
     return () => window.clearTimeout(t);
-  }, [dialogOpen, quotaLoaded, hasPremiumAccess, snoozed]);
+  }, [dialogOpen, quotaLoaded, hidePromoForQuota, snoozed]);
 
   const handleSnooze = useCallback(() => {
     writeSnooze();
@@ -138,7 +140,7 @@ export const PremiumUpgradePromo = () => {
     setDialogOpen(true);
   }, []);
 
-  if (!quotaLoaded || hasPremiumAccess || snoozed) {
+  if (!quotaLoaded || hidePromoForQuota || snoozed) {
     return null;
   }
 
