@@ -4,10 +4,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import type { AppPanel } from "@/features/shell/panel";
 import { motion } from "framer-motion";
 import {
+  Brain,
   FileText,
   LayoutGrid,
   LibraryBig,
   MessageSquare,
+  Microscope,
   Store,
 } from "lucide-react";
 import { Logo } from "./Logo";
@@ -97,6 +99,40 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
         >
           <LibraryBig className="size-4 shrink-0 opacity-70" aria-hidden />
           Library
+        </motion.button>
+        <motion.button
+          type="button"
+          className={
+            activePanel === "research"
+              ? "flex items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left text-sm font-medium text-sidebar-foreground"
+              : "flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          }
+          whileHover={{ x: 2 }}
+          whileTap={{ scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          aria-current={activePanel === "research" ? "page" : undefined}
+          aria-label="Deep Research"
+          onClick={() => onPanelChange("research")}
+        >
+          <Microscope className="size-4 shrink-0 opacity-70" aria-hidden />
+          Deep Research
+        </motion.button>
+        <motion.button
+          type="button"
+          className={
+            activePanel === "memory"
+              ? "flex items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left text-sm font-medium text-sidebar-foreground"
+              : "flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          }
+          whileHover={{ x: 2 }}
+          whileTap={{ scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          aria-current={activePanel === "memory" ? "page" : undefined}
+          aria-label="Memory"
+          onClick={() => onPanelChange("memory")}
+        >
+          <Brain className="size-4 shrink-0 opacity-70" aria-hidden />
+          Memory
         </motion.button>
         <motion.button
           type="button"

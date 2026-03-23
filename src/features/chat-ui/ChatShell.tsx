@@ -1,15 +1,18 @@
 "use client";
 
-import { useNotes } from "@/features/notes/notes-context";
 import { useChatWithOpenRouter } from "@/features/ai-agent/useChatWithOpenRouter";
+import { useMemory } from "@/features/memory/memory-provider";
+import { useNotes } from "@/features/notes/notes-context";
 import { ChatInputBar } from "./ChatInputBar";
 import { MessageFeed } from "./MessageFeed";
 
 export const ChatShell = () => {
   const { syncNotesFromAgent } = useNotes();
+  const { replaceAll: syncMemoryFromAgent } = useMemory();
   const { messages, sendMessage, status, stop, setMessages, error, clearError } =
     useChatWithOpenRouter({
       onNotesSyncedFromAgent: syncNotesFromAgent,
+      onMemorySyncedFromAgent: syncMemoryFromAgent,
     });
 
   const handleSend = async (text: string) => {

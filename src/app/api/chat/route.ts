@@ -13,10 +13,13 @@ import { createContext7Toolset } from "@/features/integrations/context7-tools";
 import { createExaSearchToolset } from "@/features/integrations/exa-tools";
 import { createGithubToolset } from "@/features/integrations/github-tools";
 import { createNativeSearchToolset } from "@/features/integrations/native-search-tools";
+import { createMemoryToolset } from "@/features/ai-agent/memory-tools";
 import { createNotesToolset } from "@/features/ai-agent/notes-tools";
+import type { MemoryEntry } from "@/features/memory/memory-types";
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/notes/constants";
 import type { Note } from "@/features/notes/types";
-import { buildRagContextBlock } from "@/lib/retrieve-notes-context";
+import type { ResearchSnippet } from "@/features/research/research-types";
+import { buildUnifiedRagContextBlock } from "@/lib/unified-rag-context";
 import { getLatestUserTextFromUiMessages } from "@/features/ai-agent/last-user-message";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
@@ -33,6 +36,25 @@ const NoteSchema = z.object({
   id: z.string(),
   title: z.string(),
   content: z.string(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+const ResearchSnippetSchema = z.object({
+  id: z.string(),
+  topic: z.string(),
+  sourceType: z.enum(["web", "wikipedia", "arxiv"]),
+  sourceUrl: z.string(),
+  title: z.string(),
+  body: z.string().max(52_000),
+  createdAt: z.number(),
+});
+
+const MemoryEntrySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string().max(50_000),
+  tags: z.array(z.string()),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -64,6 +86,12 @@ const ActiveSheetPayloadSchema = z.object({
 const ChatBodySchema = z.object({
   messages: z.array(z.unknown()),
   notes: z.array(NoteSchema).optional().default([]),
+  researchSnippets: z
+    .array(ResearchSnippetSchema)
+    .max(120)
+    .optional()
+    .default([]),
+  memory: z.array(MemoryEntrySchema).max(200).optional().default([]),
   mode: z.enum(["chat", "docs"]).optional().default("chat"),
   activeDocument: z
     .object({
@@ -146,6 +174,8 @@ export async function POST(req: Request) {
   const {
     messages: rawMessages,
     notes: requestNotes,
+    researchSnippets: requestResearchSnippets,
+    memory: requestMemoryEntries,
     mode,
     activeDocument,
     activeSheet,
@@ -167,6 +197,9 @@ export async function POST(req: Request) {
 
   const openrouter = createOpenRouter({ apiKey });
   const { tools: noteTools } = createNotesToolset(requestNotes as Note[]);
+  const { tools: memoryTools } = createMemoryToolset(
+    requestMemoryEntries as MemoryEntry[],
+  );
   const { tools: docCreationTools } = createDocumentCreationToolset();
   const { tools: docsEditorTools } = createDocsEditorToolset();
 
@@ -234,10 +267,12 @@ export async function POST(req: Request) {
         ...docsEditorTools,
         ...sheetsTools,
         ...noteTools,
+        ...memoryTools,
         ...docCreationTools,
       }
     : {
         ...noteTools,
+        ...memoryTools,
         ...docCreationTools,
         ...workspaceReadToolset,
         ...nativeTools,
@@ -248,11 +283,13 @@ export async function POST(req: Request) {
 
   let ragBlock = "";
   try {
-    ragBlock = await buildRagContextBlock({
+    ragBlock = await buildUnifiedRagContextBlock({
       apiKey,
       embeddingModelId: embeddingModel,
       userQuery: queryText,
       notes: requestNotes as Note[],
+      researchSnippets: requestResearchSnippets as ResearchSnippet[],
+      memoryEntries: requestMemoryEntries as MemoryEntry[],
     });
   } catch {
     ragBlock = "";
@@ -262,13 +299,14 @@ export async function POST(req: Request) {
 ## Document files (chat mode)
 When the user asks for an Excel spreadsheet, a Word document, or a CSV/Markdown/text file, call the appropriate tool (\`create_spreadsheet\`, \`create_word_document\`, \`create_text_document\`). The UI builds the file in the browser for download. Do not paste huge tables or base64 in the message text; use tools and briefly summarize.`;
 
-  const chatSystem = `You are Caulfield.ai — a capable assistant with **full access** to the user's notes through tools.
+  const chatSystem = `You are Caulfield.ai — a capable assistant with **full access** to the user's **notes** and **memory** through tools.
 
 Behavior:
-- Use tools to list, read, search, create, update, or delete notes whenever it helps answer the user or carry out requests.
-- After mutating notes, briefly confirm what changed (titles and ids when useful).
-- Prefer \`notes_list\`, \`notes_search\`, or \`notes_read\` instead of guessing when the user refers to existing content.
-- Retrieved excerpts below are from **semantic RAG** (embedding similarity). They may be incomplete; tools are authoritative for full text.
+- Use \`notes_*\` tools to list, read, search, create, update, or delete notes whenever it helps.
+- Use \`memory_*\` tools to persist durable facts, preferences, or summaries the user (or you) would want recalled later; prefer \`memory_create\` when the user explicitly asks to remember something important.
+- After mutating notes or memory, briefly confirm what changed (titles and ids when useful).
+- Prefer \`notes_list\`, \`notes_search\`, \`notes_read\`, \`memory_list\`, \`memory_search\`, or \`memory_read\` instead of guessing when the user refers to stored content.
+- Retrieved excerpts below combine **semantic RAG** over notes, **Deep Research** snippets (from the Research tab), and **memory**. They may be incomplete; tools are authoritative for full text.
 
 ${docCreationInstructions}
 
@@ -335,7 +373,7 @@ ${
     : ""
 }
 
-## Retrieved note excerpts
+## Retrieved context (notes, research, memory)
 ${ragBlock || "_No excerpts (empty library or retrieval skipped)._"}`;
 
   let docsSystem = `You are Caulfield.ai — a **document editor** for the Docs workspace.
@@ -356,10 +394,10 @@ The client applies a batch in **descending anchor order** (\`from\` for replace/
 - **Avoid huge tool payloads:** long stories should use multiple smaller \`insert_at\` / \`replace_range\` calls or compact \`paragraph\` arrays—not one giant stringified \`edits\` value that providers may truncate.
 - When the user has highlighted text, prioritize edits that touch the selection range (\`from\`/\`to\` from **Current selection**).
 - **Sheets tab:** use \`sheets_apply_cells\` for workspace spreadsheets. \`sheetRevision\` must match the sheet revision in context; omit \`sheetId\` to target the active sheet.
-- **Notes & downloads:** you also have \`notes_*\` tools and file-creation tools (\`create_spreadsheet\`, etc.) like main chat—use them when the user asks.
+- **Notes, memory & downloads:** you also have \`notes_*\`, \`memory_*\` tools and file-creation tools (\`create_spreadsheet\`, etc.) like main chat—use them when the user asks.
 - Be concise in natural-language replies after editing.
 
-## Retrieved note excerpts (optional context)
+## Retrieved context (notes, research, memory)
 ${ragBlock || "_No excerpts._"}`;
 
   if (isDocsMode && activeDocument) {

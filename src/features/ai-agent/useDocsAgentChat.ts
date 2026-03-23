@@ -3,7 +3,9 @@
 import { getDocsChatBodyFields } from "@/features/documents/docs-chat-bridge";
 import type { DocEditsOutput, SheetCellsOutput } from "@/features/documents/file-spec";
 import { isDocEditsOutput, isSheetCellsOutput } from "@/features/documents/file-spec";
+import { getMemorySnapshot } from "@/features/memory/memory-chat-bridge";
 import { getNotesSnapshot } from "@/features/notes/notes-api-bridge";
+import { getResearchSnapshot } from "@/features/research/research-chat-bridge";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart } from "ai";
 import { useMemo } from "react";
@@ -30,6 +32,8 @@ export const useDocsAgentChat = (options?: UseDocsAgentChatOptions) => {
         }),
         body: () => ({
           notes: getNotesSnapshot(),
+          researchSnippets: getResearchSnapshot(),
+          memory: getMemorySnapshot(),
           ...getDocsChatBodyFields(),
         }),
       }),

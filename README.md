@@ -21,7 +21,7 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 | | |
 |:---|:---|
 | **Privacy-friendly** | Notes, docs, and sheets live in **your browser** (localStorage / IndexedDB). Nothing is sent to our servers — only to the AI provider you configure. |
-| **One brain, many surfaces** | Same assistant can reason over **notes (with RAG)**, **workspace docs & sheets**, and optional **marketplace tools**. |
+| **One brain, many surfaces** | Same assistant can reason over **notes**, **Deep Research snippets**, **memory**, **workspace docs & sheets**, and optional **marketplace tools** — unified **semantic RAG** where it matters. |
 | **Built to feel good** | Dark mode with smooth transitions, motion where it helps, and UI patterns tuned for long sessions. |
 
 ---
@@ -31,7 +31,7 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 ### Chat
 
 - Streaming assistant with **tool use** (notes CRUD, file generation, optional web & GitHub & Context7 & Exa when enabled in Marketplace).
-- **Semantic retrieval** over your notes for grounded answers.
+- **Semantic retrieval** over **notes**, **saved research snippets**, and **memory** for grounded answers.
 - **Syntax-highlighted** code blocks (theme-aware: light/dark).
 - **Voice dictation** where supported (Web Speech API).
 
@@ -54,6 +54,22 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 ### Marketplace
 
 - Toggle **native web lookup**, **GitHub** (public repos), **Context7** (library docs), and **Exa** (search) — API keys stay in the browser unless you deploy your own backend.
+
+### Deep Research
+
+- Dedicated tab runs a **multi-step research agent** (`generateText` + tools, `stopWhen` step budget) with **Wikipedia**, **arXiv**, and **chunked public web fetch** (`/api/research`).
+- The agent saves **cited snippets**; they persist in the browser and are **embedded into chat context** alongside notes and memory.
+
+### Memory
+
+- **Memory** tab for durable facts and preferences; the chat agent has **`memory_*` tools** (list/read/search/create/update/delete) and changes **sync back** to the UI like notes.
+- Memory entries participate in the **same RAG pipeline** as notes and research.
+
+### Accounts & chat history (scaffold)
+
+- **`SessionProvider`** (`src/features/auth/session-context.tsx`) — stub for **Vercel Auth** / session wiring.
+- **`getAccountStorageScope()`** (`src/features/auth/storage-scope.ts`) — namespaces **localStorage** keys (`anon` until sign-in).
+- **`chat-history-scaffold.ts`** — types and local key helpers for **per-scope conversation** storage; ready to hook to `useChat` and a future server sync.
 
 ### Experience
 
@@ -102,10 +118,10 @@ npm run start
 There is **no `.env` file required** for local development. In the app:
 
 1. Open **Settings** (gear in the chat input area).
-2. Add your **OpenRouter API key** and **model ID** (and optional **embedding model** for note RAG).
+2. Add your **OpenRouter API key** and **model ID** (and optional **embedding model** for **unified RAG**: notes + research + memory).
 3. In **Marketplace**, enable connectors and paste vendor keys as needed.
 
-Keys are stored in **browser localStorage** on your machine. For a team deployment, consider a small proxy or server-side key management — this repo’s default is client-origin requests to OpenRouter from the `/api/chat` route using headers the client sends.
+Keys are stored in **browser localStorage** on your machine. For a team deployment, consider a small proxy or server-side key management — this repo’s default is client-origin requests to OpenRouter from **`/api/chat`** and **`/api/research`** using headers the client sends.
 
 ---
 
@@ -125,7 +141,9 @@ Keys are stored in **browser localStorage** on your machine. For a team deployme
 ```text
 src/
 ├── app/                 # App Router — page, layout, globals, API routes
-│   └── api/chat/        # Streaming chat + tools (OpenRouter)
+│   └── api/
+│       ├── chat/        # Streaming chat + tools (OpenRouter)
+│       └── research/    # Deep Research agent (non-streaming JSON)
 ├── components/          # Shared UI (theme, dictation, shadcn-style primitives)
 ├── features/            # Domain: chat-ui, notes, documents, library, marketplace, shell, …
 ├── hooks/               # e.g. speech dictation
@@ -136,7 +154,9 @@ src/
 
 ## Deploying
 
-Compatible with **[Vercel](https://vercel.com/)** and any Node host that supports Next.js. Set nothing in env for the default flow; ensure your deployment allows the **`/api/chat`** route and that users still configure keys in the UI (or move keys server-side for production hardening).
+Compatible with **[Vercel](https://vercel.com/)** and any Node host that supports Next.js. Set nothing in env for the default flow; ensure your deployment allows **`/api/chat`** and **`/api/research`** and that users still configure keys in the UI (or move keys server-side for production hardening).
+
+**Maintainer habit:** after substantive changes, update this README and push to **`main`** on GitHub when applicable.
 
 ---
 

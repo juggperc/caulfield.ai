@@ -1,1 +1,8 @@
-export type AppPanel = "chat" | "notes" | "docs" | "library" | "marketplace";
+export type AppPanel =
+  | "chat"
+  | "notes"
+  | "docs"
+  | "library"
+  | "marketplace"
+  | "research"
+  | "memory";
