@@ -1,5 +1,7 @@
 "use client";
 
+import { scopedStorageKey } from "@/features/auth/storage-scope";
+import { useSession } from "@/features/auth/session-context";
 import {
   createContext,
   useCallback,
@@ -34,15 +36,20 @@ type SheetsContextValue = {
 const SheetsContext = createContext<SheetsContextValue | null>(null);
 
 export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useSession();
   const [sheets, setSheets] = useState<WorkspaceSheet[]>([]);
   const [selectionUser, setSelectionUser] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  const storageKey = scopedStorageKey(SHEETS_LOCAL_STORAGE_KEY);
+
   useEffect(() => {
+    if (!user?.id) return;
     queueMicrotask(() => {
       try {
-        const raw = localStorage.getItem(SHEETS_LOCAL_STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (!raw) {
+          setSheets([]);
           setHydrated(true);
           return;
         }
@@ -53,12 +60,12 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
       }
       setHydrated(true);
     });
-  }, []);
+  }, [user?.id, storageKey]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(SHEETS_LOCAL_STORAGE_KEY, JSON.stringify(sheets));
-  }, [sheets, hydrated]);
+    if (!hydrated || !user?.id) return;
+    localStorage.setItem(storageKey, JSON.stringify(sheets));
+  }, [sheets, hydrated, storageKey, user?.id]);
 
   const sorted = useMemo(
     () => [...sheets].sort((a, b) => b.updatedAt - a.updatedAt),

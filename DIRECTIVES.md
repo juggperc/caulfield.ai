@@ -107,7 +107,7 @@ DB:      Drizzle + postgres.js; schema in src/lib/db/schema.ts
 These are **intentional backlog items**, not bugs unless marked.
 
 1. **Polar webhook signature** — Implementation uses `webhook-signature` header and `hex` HMAC of raw body. **Confirm against Polar’s current docs**; adjust if they use a different header, encoding, or signing string.
-2. **Quota charging timing** — `consumeChatQuery` runs **before** `streamText` / `generateText` completes. Failed or aborted runs may still consume a credit. Consider charging on successful first token or on stream completion if product requires it.
+2. **Quota charging timing** — **`/api/chat`**: `consumeChatQuery` runs in `streamText`’s **`onFinish`** after the streamed run completes (SDK-dependent behavior on abort/error). **`/api/research`**: `consumeChatQuery` runs only after **`generateText`** returns successfully (failures in `catch` do not consume). Tighten further if product requires charging on first token only, etc.
 3. **Dev login user** — Credentials provider returns a **fixed** `dev-local-user` id; fine for local dev, **never** enable in production without replacing with a proper auth strategy.
 4. **No automated E2E/API tests** — Lint + manual flows only; add Playwright or Vitest + integration tests for auth, quota, webhooks, conversations.
 5. **Connector secrets in browser** — Marketplace keys (Exa, Context7, GitHub token) are **client-side** in BYO mode. Hosted production may need **server-side proxy tools** and encrypted storage per user.

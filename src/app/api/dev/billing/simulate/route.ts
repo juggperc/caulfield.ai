@@ -41,7 +41,10 @@ export const POST = async (req: Request) => {
 
   if (!db) {
     return NextResponse.json(
-      { error: "DATABASE_URL is not set; billing simulation needs Postgres." },
+      {
+        error:
+          "Postgres is not configured; billing simulation needs DATABASE_URL or Vercel Supabase (POSTGRES_URL).",
+      },
       { status: 400 },
     );
   }

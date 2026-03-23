@@ -1,5 +1,9 @@
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/notes/constants";
 
+export type StoredChatMode = "thinking" | "free";
+
+const CHAT_MODE_KEY = "caulfield.chat.mode";
+
 export const STORAGE_KEYS = {
   openRouterKey: "caulfield.openrouter.apiKey",
   openRouterModel: "caulfield.openrouter.modelId",
@@ -14,6 +18,38 @@ export const STORAGE_KEYS = {
   githubEnabled: "caulfield.connector.github.enabled",
   githubToken: "caulfield.connector.github.token",
 } as const;
+
+/** Chat tier for hosted-only routing (`x-chat-mode`). Migrates legacy `openRouterModel` once. */
+export const readChatMode = (): StoredChatMode => {
+  if (typeof window === "undefined") return "thinking";
+  try {
+    const v = localStorage.getItem(CHAT_MODE_KEY)?.trim().toLowerCase();
+    if (v === "free" || v === "thinking") return v;
+    const legacy =
+      localStorage.getItem(STORAGE_KEYS.openRouterModel)?.trim() ?? "";
+    const lower = legacy.toLowerCase();
+    if (lower.includes(":free")) {
+      writeChatMode("free");
+      return "free";
+    }
+    if (legacy.length > 0) {
+      writeChatMode("thinking");
+      return "thinking";
+    }
+  } catch {
+    /* private mode */
+  }
+  return "thinking";
+};
+
+export const writeChatMode = (mode: StoredChatMode): void => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CHAT_MODE_KEY, mode);
+  } catch {
+    /* quota */
+  }
+};
 
 export type IntegrationKeysBody = {
   context7ApiKey?: string;

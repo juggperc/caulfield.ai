@@ -2,7 +2,6 @@
 
 import type { UIMessage } from "ai";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
 import { getMessageText } from "./message-utils";
@@ -121,12 +120,12 @@ const ErrorBanner = ({ error }: { error: Error }) => {
             : "You\u2019ve reached your monthly query limit. Your quota will reset at the start of your next billing period."}
         </p>
         {parsed.message.includes("Free queries") ? (
-          <Link
+          <a
             href="/api/billing/checkout"
             className="mt-3 inline-flex items-center rounded-md bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Subscribe — $20/mo
-          </Link>
+          </a>
         ) : null}
       </div>
     );

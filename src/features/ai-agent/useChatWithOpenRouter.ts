@@ -7,16 +7,19 @@ import type { MemoryEntry } from "@/features/memory/memory-types";
 import { getNotesSnapshot } from "@/features/notes/notes-api-bridge";
 import type { Note } from "@/features/notes/types";
 import { getResearchSnapshot } from "@/features/research/research-chat-bridge";
+import {
+  saveConversationMessages,
+  upsertConversationMeta,
+} from "@/features/chat-ui/chat-history-scaffold";
+import { getMessageText } from "@/features/chat-ui/message-utils";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { useMemo } from "react";
 import {
+  readChatMode,
   readChatRagMemoryEnabled,
   readChatRagResearchEnabled,
   readIntegrationKeysForChatBody,
-  readOpenRouterEmbeddingModel,
-  readOpenRouterKey,
-  readOpenRouterModel,
 } from "./storage";
 
 type UseChatWithOpenRouterOptions = {
@@ -24,6 +27,8 @@ type UseChatWithOpenRouterOptions = {
   readonly onMemorySyncedFromAgent?: (memory: MemoryEntry[]) => void;
   readonly serverConversationId?: string | null;
   readonly persistServerHistory?: boolean;
+  readonly localConversationId?: string | null;
+  readonly persistLocalHistory?: boolean;
   readonly initialMessages?: UIMessage[];
   readonly chatInstanceId?: string;
 };
@@ -36,9 +41,7 @@ export const useChatWithOpenRouter = (
       new DefaultChatTransport({
         api: "/api/chat",
         headers: () => ({
-          "x-openrouter-key": readOpenRouterKey(),
-          "x-openrouter-model": readOpenRouterModel(),
-          "x-openrouter-embedding-model": readOpenRouterEmbeddingModel(),
+          "x-chat-mode": readChatMode(),
         }),
         body: () => {
           const { workspaceSheets } = getSheetsChatPayload();
@@ -89,13 +92,37 @@ export const useChatWithOpenRouter = (
         }
       }
       const sid = options?.serverConversationId ?? null;
-      const persist = Boolean(options?.persistServerHistory && sid);
-      if (persist) {
-        await fetch(`/api/conversations/${sid}/messages`, {
+      const persistServer = Boolean(options?.persistServerHistory && sid);
+      if (persistServer) {
+        const res = await fetch(`/api/conversations/${sid}/messages`, {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages }),
+        });
+        if (!res.ok) {
+          console.error(
+            "[useChatWithOpenRouter] Failed to persist messages to server",
+            res.status,
+          );
+        }
+      }
+
+      const lid = options?.localConversationId ?? null;
+      if (options?.persistLocalHistory && lid) {
+        saveConversationMessages(lid, messages);
+        const firstUser = messages.find((m) => m.role === "user");
+        const rawTitle = firstUser ? getMessageText(firstUser).trim() : "";
+        const title =
+          rawTitle.length > 0
+            ? rawTitle.length > 80
+              ? `${rawTitle.slice(0, 80)}…`
+              : rawTitle
+            : "New chat";
+        upsertConversationMeta({
+          id: lid,
+          title,
+          updatedAt: Date.now(),
         });
       }
     },

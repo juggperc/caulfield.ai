@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@/features/auth/session-context";
 import { registerMemoryGetter } from "@/features/memory/memory-chat-bridge";
 import {
   createContext,
@@ -23,10 +24,12 @@ type MemoryContextValue = {
 const MemoryContext = createContext<MemoryContextValue | null>(null);
 
 export const MemoryProvider = ({ children }: { readonly children: ReactNode }) => {
+  const { user } = useSession();
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (!user?.id) return;
     queueMicrotask(() => {
       try {
         setEntries(loadMemoryEntries());
@@ -35,12 +38,12 @@ export const MemoryProvider = ({ children }: { readonly children: ReactNode }) =
       }
       setHydrated(true);
     });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !user?.id) return;
     saveMemoryEntries(entries);
-  }, [entries, hydrated]);
+  }, [entries, hydrated, user?.id]);
 
   useEffect(() => {
     registerMemoryGetter(() => entries);

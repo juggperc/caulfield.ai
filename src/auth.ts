@@ -104,8 +104,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: db ? { strategy: "database" } : { strategy: "jwt" },
   secret: authSecret,
   trustHost: true,
+  pages: {
+    signIn: "/sign-in",
+  },
   providers,
   callbacks: {
+    redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const next = new URL(url);
+        if (next.origin === baseUrl) return url;
+      } catch {
+        /* invalid */
+      }
+      return baseUrl;
+    },
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;

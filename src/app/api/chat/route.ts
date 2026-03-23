@@ -16,12 +16,19 @@ import { createNativeSearchToolset } from "@/features/integrations/native-search
 import { createMemoryToolset } from "@/features/ai-agent/memory-tools";
 import { createNotesToolset } from "@/features/ai-agent/notes-tools";
 import type { MemoryEntry } from "@/features/memory/memory-types";
-import { DEFAULT_EMBEDDING_MODEL } from "@/features/notes/constants";
 import type { Note } from "@/features/notes/types";
 import type { ResearchSnippet } from "@/features/research/research-types";
 import { auth } from "@/auth";
 import { checkChatQuota, consumeChatQuery } from "@/lib/billing/quota";
 import { isDbConfigured } from "@/lib/db";
+import {
+  getEmbeddingModelId,
+  getServerOpenRouterKey,
+  isChatBillable,
+  parseChatModeHeader,
+  resolveChatModelId,
+  type ChatMode,
+} from "@/lib/openrouter/server-models";
 import { buildUnifiedRagContextBlock } from "@/lib/unified-rag-context";
 import { getLatestUserTextFromUiMessages } from "@/features/ai-agent/last-user-message";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -178,33 +185,36 @@ const ragBehaviorClause = (
 
 export async function POST(req: Request) {
   const session = await auth();
-  const serverKey = process.env.OPENROUTER_API_KEY?.trim();
-  const headerKey = req.headers.get("x-openrouter-key")?.trim();
-  const headerModel = req.headers.get("x-openrouter-model")?.trim();
-  const headerEmbed = req.headers.get("x-openrouter-embedding-model")?.trim();
-
-  const hosted = Boolean(serverKey);
-  const defaultHostedModel =
-    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "x-ai/grok-3-fast";
-  const defaultHostedEmbed =
-    process.env.OPENROUTER_DEFAULT_EMBEDDING_MODEL?.trim() ||
-    DEFAULT_EMBEDDING_MODEL;
-
-  const apiKey = hosted ? serverKey : headerKey;
-  const modelId = hosted ? headerModel || defaultHostedModel : headerModel;
-  const embeddingModel =
-    headerEmbed || (hosted ? defaultHostedEmbed : DEFAULT_EMBEDDING_MODEL);
-
-  if (!apiKey || !modelId) {
+  const userId = session?.user?.id?.trim();
+  if (!userId) {
     return new Response(
       JSON.stringify({
-        error: hosted
-          ? "Server OpenRouter is not configured."
-          : "Missing OpenRouter API key or model ID. Open settings and save your credentials.",
+        error: "Sign in to send messages and use the workspace.",
+        code: "UNAUTHORIZED",
       }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      { status: 401, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  const apiKey = getServerOpenRouterKey();
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "AI is not configured on this server. Set OPENROUTER_API_KEY on the host.",
+        code: "OPENROUTER_UNAVAILABLE",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const chatMode: ChatMode = parseChatModeHeader(
+    req.headers.get("x-chat-mode"),
+  );
+  const modelId = resolveChatModelId(chatMode);
+  const embeddingModel = getEmbeddingModelId();
+  const billable = isChatBillable(chatMode);
+  const hosted = true;
 
   let json: unknown;
   try {
@@ -249,16 +259,7 @@ export async function POST(req: Request) {
 
   const quotaEnforced = hosted && isDbConfigured();
   if (quotaEnforced) {
-    if (!session?.user?.id) {
-      return new Response(
-        JSON.stringify({
-          error: "Sign in to use hosted AI and billing.",
-          code: "UNAUTHORIZED",
-        }),
-        { status: 401, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    const qc = await checkChatQuota(session.user.id);
+    const qc = await checkChatQuota(userId, { billable });
     if (!qc.ok) {
       return new Response(
         JSON.stringify({
@@ -582,9 +583,9 @@ ${truncate(preview, 14_000)}`;
       tools,
       stopWhen: stepCountIs(14),
       onFinish: async () => {
-        if (quotaEnforced && session?.user?.id) {
+        if (quotaEnforced) {
           try {
-            await consumeChatQuery(session.user.id);
+            await consumeChatQuery(userId, { billable });
           } catch (e) {
             console.error("[chat] Failed to consume quota onFinish", e);
           }

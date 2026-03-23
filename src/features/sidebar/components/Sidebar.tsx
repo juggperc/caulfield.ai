@@ -18,7 +18,6 @@ import {
   Plus,
   MessageCircle,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { Logo } from "./Logo";
 
@@ -44,7 +43,9 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
   useEffect(() => {
     void fetch("/api/config")
       .then((r) => r.json())
-      .then((j: { hasDb: boolean }) => setDbConfigured(j.hasDb))
+      .then((j: { databaseConfigured?: boolean }) =>
+        setDbConfigured(Boolean(j.databaseConfigured)),
+      )
       .catch(() => {});
   }, []);
 
@@ -255,7 +256,7 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
               {!displayQuota?.subscribed &&
               displayQuota &&
               displayQuota.freeRemaining === 0 ? (
-                <Link
+                <a
                   href="/api/billing/checkout"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
@@ -263,14 +264,16 @@ export const Sidebar = ({ activePanel, onPanelChange }: SidebarProps) => {
                   )}
                 >
                   Subscribe
-                </Link>
+                </a>
               ) : null}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start gap-2 text-muted-foreground"
-                onClick={signOut}
+                onClick={() => {
+                  void signOut();
+                }}
               >
                 <LogOut className="size-4" aria-hidden />
                 Sign out

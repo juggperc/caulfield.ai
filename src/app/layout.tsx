@@ -1,3 +1,4 @@
+import { SiteFooter } from "@/components/site-footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -30,7 +31,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <div className="flex min-h-full flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+            <SiteFooter />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

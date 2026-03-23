@@ -1,18 +1,26 @@
+import { getAccountStorageScope } from "@/features/auth/storage-scope";
 import type { FileSpecPayload } from "@/features/documents/file-spec";
 import {
   idbDeleteItem,
   idbGetAllMeta,
   idbGetBlob,
   idbPutMetaAndBlob,
+  libraryDatabaseNameForScope,
   openLibraryDb,
 } from "./idb";
 import type { LibraryItemMeta } from "./types";
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+const dbPromises = new Map<string, Promise<IDBDatabase>>();
 
 const getDb = () => {
-  if (!dbPromise) dbPromise = openLibraryDb();
-  return dbPromise;
+  const scope = getAccountStorageScope();
+  const name = libraryDatabaseNameForScope(scope);
+  let p = dbPromises.get(name);
+  if (!p) {
+    p = openLibraryDb(name);
+    dbPromises.set(name, p);
+  }
+  return p;
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>

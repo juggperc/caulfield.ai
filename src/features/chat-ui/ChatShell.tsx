@@ -1,6 +1,10 @@
 "use client";
 
 import { useSession } from "@/features/auth/session-context";
+import {
+  readLastServerConversationId,
+  writeLastServerConversationId,
+} from "@/features/auth/storage-scope";
 import { useChatWithOpenRouter } from "@/features/ai-agent/useChatWithOpenRouter";
 import type { MemoryEntry } from "@/features/memory/memory-types";
 import { useMemory } from "@/features/memory/memory-provider";
@@ -8,6 +12,12 @@ import { useNotes } from "@/features/notes/notes-context";
 import type { Note } from "@/features/notes/types";
 import type { UIMessage } from "ai";
 import { useCallback, useEffect, useState } from "react";
+import {
+  getOrCreateLocalConversationId,
+  loadConversationMessages,
+  setLocalActiveConversationId,
+  upsertConversationMeta,
+} from "./chat-history-scaffold";
 import { ChatInputBar } from "./ChatInputBar";
 import { MessageFeed } from "./MessageFeed";
 
@@ -23,15 +33,20 @@ export const ChatShell = () => {
   const [convId, setConvId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [historyReady, setHistoryReady] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyRetryNonce, setHistoryRetryNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const c = await fetch("/api/config", { credentials: "include" }).then(
-        (r) => r.json() as Promise<PublicConfig>,
-      );
-      if (cancelled) return;
-      setCfg(c);
+      try {
+        const r = await fetch("/api/config", { credentials: "include" });
+        if (!r.ok) return;
+        const c = (await r.json()) as PublicConfig;
+        if (!cancelled) setCfg(c);
+      } catch {
+        if (!cancelled) setCfg({ databaseConfigured: false });
+      }
     })();
     return () => {
       cancelled = true;
@@ -48,8 +63,11 @@ export const ChatShell = () => {
     const run = async () => {
       if (!cfg.databaseConfigured) {
         if (!cancelled) {
-          setConvId(null);
-          setInitialMessages([]);
+          const id = getOrCreateLocalConversationId();
+          const loaded = loadConversationMessages(id) ?? [];
+          setConvId(id);
+          setInitialMessages(loaded);
+          setHistoryError(null);
           setHistoryReady(true);
         }
         return;
@@ -63,6 +81,7 @@ export const ChatShell = () => {
         if (!cancelled) {
           setConvId(null);
           setInitialMessages([]);
+          setHistoryError(null);
           setHistoryReady(true);
         }
         return;
@@ -70,31 +89,65 @@ export const ChatShell = () => {
 
       if (!cancelled) {
         setHistoryReady(false);
+        setHistoryError(null);
       }
 
-      const list = await fetch("/api/conversations", {
-        credentials: "include",
-      }).then((r) => r.json() as Promise<{ id: string }[]>);
-      if (cancelled) return;
-
-      let id = list[0]?.id;
-      if (!id) {
-        const created = await fetch("/api/conversations", {
-          method: "POST",
+      try {
+        const listRes = await fetch("/api/conversations", {
           credentials: "include",
-        }).then((r) => r.json() as Promise<{ id: string }>);
-        id = created.id;
-      }
-      if (cancelled) return;
+        });
+        if (!listRes.ok) {
+          throw new Error(`List failed (${listRes.status})`);
+        }
+        const list = (await listRes.json()) as { id: string }[];
+        if (cancelled) return;
 
-      const data = await fetch(`/api/conversations/${id}`, {
-        credentials: "include",
-      }).then((r) => r.json() as Promise<{ messages: UIMessage[] }>);
-      if (cancelled) return;
+        const preferred = readLastServerConversationId();
+        const preferredOk =
+          preferred && list.some((row) => row.id === preferred)
+            ? preferred
+            : null;
 
-      if (!cancelled) {
+        let id = preferredOk ?? list[0]?.id;
+        if (!id) {
+          const postRes = await fetch("/api/conversations", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!postRes.ok) {
+            throw new Error(`Create conversation failed (${postRes.status})`);
+          }
+          const created = (await postRes.json()) as { id?: string };
+          const newId = created.id;
+          if (!newId) {
+            throw new Error("Create conversation returned no id");
+          }
+          id = newId;
+        }
+        if (cancelled) return;
+
+        const dataRes = await fetch(`/api/conversations/${id}`, {
+          credentials: "include",
+        });
+        if (!dataRes.ok) {
+          throw new Error(`Load conversation failed (${dataRes.status})`);
+        }
+        const data = (await dataRes.json()) as { messages?: UIMessage[] };
+        if (cancelled) return;
+
+        writeLastServerConversationId(id);
         setConvId(id);
         setInitialMessages(data.messages ?? []);
+        setHistoryError(null);
+        setHistoryReady(true);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[ChatShell] Conversation bootstrap failed", e);
+        setHistoryError(
+          "Could not load your chat history. Check your connection and try again.",
+        );
+        setConvId(null);
+        setInitialMessages([]);
         setHistoryReady(true);
       }
     };
@@ -103,20 +156,44 @@ export const ChatShell = () => {
     return () => {
       cancelled = true;
     };
-  }, [cfg, status, user?.id]);
+  }, [cfg, status, user?.id, historyRetryNonce]);
 
-  const persist =
+  const persistServer =
     Boolean(cfg?.databaseConfigured && user?.id && convId) && historyReady;
+  const persistLocal =
+    Boolean(cfg && !cfg.databaseConfigured && convId) && historyReady;
 
   const handleNewChat = useCallback(async () => {
-    if (!persist) return;
-    const created = await fetch("/api/conversations", {
-      method: "POST",
-      credentials: "include",
-    }).then((r) => r.json() as Promise<{ id: string }>);
-    setConvId(created.id);
-    setInitialMessages([]);
-  }, [persist]);
+    if (cfg?.databaseConfigured && user?.id) {
+      const postRes = await fetch("/api/conversations", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!postRes.ok) return;
+      const created = (await postRes.json()) as { id?: string };
+      if (!created.id) return;
+      writeLastServerConversationId(created.id);
+      setConvId(created.id);
+      setInitialMessages([]);
+      return;
+    }
+    if (cfg && !cfg.databaseConfigured) {
+      const next = crypto.randomUUID();
+      setLocalActiveConversationId(next);
+      upsertConversationMeta({
+        id: next,
+        title: "New chat",
+        updatedAt: Date.now(),
+      });
+      setConvId(next);
+      setInitialMessages([]);
+    }
+  }, [cfg, user?.id]);
+
+  const handleHistoryRetry = useCallback(() => {
+    setHistoryError(null);
+    setHistoryRetryNonce((n) => n + 1);
+  }, []);
 
   if (!historyReady) {
     return (
@@ -126,13 +203,34 @@ export const ChatShell = () => {
     );
   }
 
+  if (historyError) {
+    return (
+      <div
+        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+        role="alert"
+      >
+        <p className="text-sm text-muted-foreground">{historyError}</p>
+        <button
+          type="button"
+          onClick={handleHistoryRetry}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const showNewChat = persistServer || persistLocal;
+
   return (
     <ChatShellInner
       key={convId ?? "local"}
       convId={convId}
-      persist={persist}
+      persistServerHistory={persistServer}
+      persistLocalHistory={persistLocal}
       initialMessages={initialMessages}
-      onNewChat={persist ? handleNewChat : undefined}
+      onNewChat={showNewChat ? handleNewChat : undefined}
       syncNotesFromAgent={syncNotesFromAgent}
       syncMemoryFromAgent={syncMemoryFromAgent}
     />
@@ -141,7 +239,8 @@ export const ChatShell = () => {
 
 type InnerProps = {
   readonly convId: string | null;
-  readonly persist: boolean;
+  readonly persistServerHistory: boolean;
+  readonly persistLocalHistory: boolean;
   readonly initialMessages: UIMessage[];
   readonly onNewChat?: () => void;
   readonly syncNotesFromAgent: (notes: Note[]) => void;
@@ -150,7 +249,8 @@ type InnerProps = {
 
 const ChatShellInner = ({
   convId,
-  persist,
+  persistServerHistory,
+  persistLocalHistory,
   initialMessages,
   onNewChat,
   syncNotesFromAgent,
@@ -160,8 +260,10 @@ const ChatShellInner = ({
     useChatWithOpenRouter({
       onNotesSyncedFromAgent: syncNotesFromAgent,
       onMemorySyncedFromAgent: syncMemoryFromAgent,
-      serverConversationId: convId,
-      persistServerHistory: persist,
+      serverConversationId: persistServerHistory ? convId : null,
+      persistServerHistory,
+      localConversationId: persistLocalHistory ? convId : null,
+      persistLocalHistory,
       initialMessages,
       chatInstanceId: convId ?? "default-local-chat",
     });

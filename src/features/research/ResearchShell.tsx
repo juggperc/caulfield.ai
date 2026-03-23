@@ -2,11 +2,6 @@
 
 import { useResearch } from "@/features/research/research-provider";
 import type { ResearchSnippet } from "@/features/research/research-types";
-import {
-  readOpenRouterKey,
-  readOpenRouterModel,
-} from "@/features/ai-agent/storage";
-import { ModelChipButton } from "@/features/chat-ui/ModelChipButton";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
 import { cn } from "@/lib/utils";
 import { Loader2, Trash2 } from "lucide-react";
@@ -32,26 +27,20 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
   const [busy, setBusy] = useState(false);
   const [lastSummary, setLastSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hostedOpenRouter, setHostedOpenRouter] = useState(false);
+  const [openRouterConfigured, setOpenRouterConfigured] = useState(false);
 
   useEffect(() => {
     void fetch("/api/config", { credentials: "include" })
-      .then((r) => r.json() as Promise<{ hostedOpenRouter?: boolean }>)
-      .then((c) => setHostedOpenRouter(Boolean(c.hostedOpenRouter)))
-      .catch(() => setHostedOpenRouter(false));
+      .then((r) => r.json() as Promise<{ openRouterConfigured?: boolean }>)
+      .then((c) => setOpenRouterConfigured(Boolean(c.openRouterConfigured)))
+      .catch(() => setOpenRouterConfigured(false));
   }, []);
 
   const handleRun = useCallback(async () => {
     const t = topic.trim();
     if (!t || busy) return;
-    const key = readOpenRouterKey().trim();
-    const model = readOpenRouterModel().trim();
-    if (!model) {
-      setError("Choose a chat model (⌘K or settings) first.");
-      return;
-    }
-    if (!hostedOpenRouter && !key) {
-      setError("Add your OpenRouter API key in settings first.");
+    if (!openRouterConfigured) {
+      setError("AI is not available on this deployment.");
       return;
     }
     setBusy(true);
@@ -62,9 +51,8 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(key ? { "x-openrouter-key": key } : {}),
-          "x-openrouter-model": model,
         },
+        credentials: "include",
         body: JSON.stringify({ topic: t }),
       });
       const data = (await res.json()) as ApiOk | ApiErr;
@@ -81,7 +69,7 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
     } finally {
       setBusy(false);
     }
-  }, [topic, busy, addSnippets, hostedOpenRouter]);
+  }, [topic, busy, addSnippets, openRouterConfigured]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -108,15 +96,9 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
         )}
       >
         <p className="text-sm text-muted-foreground">
-          Multi-step agent loop with Wikipedia, arXiv, and chunked web fetch.
-          Saved snippets feed chat RAG alongside Notes and Memory.
+          Wikipedia, arXiv, and web sources. Snippets feed chat context with notes
+          and memory.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Model
-          </span>
-          <ModelChipButton disabled={busy} />
-        </div>
         <div className="flex flex-col gap-2">
           <label
             htmlFor="research-topic"

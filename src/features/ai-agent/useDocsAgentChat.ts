@@ -10,11 +10,9 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart } from "ai";
 import { useMemo } from "react";
 import {
+  readChatMode,
   readChatRagMemoryEnabled,
   readChatRagResearchEnabled,
-  readOpenRouterEmbeddingModel,
-  readOpenRouterKey,
-  readOpenRouterModel,
 } from "./storage";
 
 type UseDocsAgentChatOptions = {
@@ -28,9 +26,7 @@ export const useDocsAgentChat = (options?: UseDocsAgentChatOptions) => {
       new DefaultChatTransport({
         api: "/api/chat",
         headers: () => ({
-          "x-openrouter-key": readOpenRouterKey(),
-          "x-openrouter-model": readOpenRouterModel(),
-          "x-openrouter-embedding-model": readOpenRouterEmbeddingModel(),
+          "x-chat-mode": readChatMode(),
         }),
         body: () => ({
           notes: getNotesSnapshot(),

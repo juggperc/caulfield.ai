@@ -10,15 +10,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MemoryShell } from "@/features/memory/MemoryShell";
+import { useOpenRouterUi } from "@/features/openrouter/OpenRouterUiProvider";
 import { ResearchShell } from "@/features/research/ResearchShell";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Brain, Microscope } from "lucide-react";
-import { useState } from "react";
 
 export const ChatResearchMemoryDialogs = () => {
-  const [researchOpen, setResearchOpen] = useState(false);
-  const [memoryOpen, setMemoryOpen] = useState(false);
+  const {
+    researchDialogOpen,
+    setResearchDialogOpen,
+    memoryDialogOpen,
+    setMemoryDialogOpen,
+  } = useOpenRouterUi();
 
   return (
     <>
@@ -34,7 +38,7 @@ export const ChatResearchMemoryDialogs = () => {
             "text-muted-foreground",
           )}
           aria-label="Open Deep Research"
-          onClick={() => setResearchOpen(true)}
+          onClick={() => setResearchDialogOpen(true)}
         >
           <Microscope className="size-4" aria-hidden />
         </button>
@@ -51,35 +55,35 @@ export const ChatResearchMemoryDialogs = () => {
             "text-muted-foreground",
           )}
           aria-label="Open Memory"
-          onClick={() => setMemoryOpen(true)}
+          onClick={() => setMemoryDialogOpen(true)}
         >
           <Brain className="size-4" aria-hidden />
         </button>
       </motion.div>
 
-      <Dialog open={researchOpen} onOpenChange={setResearchOpen}>
-        <DialogContent showClose>
-          <DialogHeader>
+      <Dialog open={researchDialogOpen} onOpenChange={setResearchDialogOpen}>
+        <DialogContent showClose className="max-h-[min(90vh,720px)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b border-border px-4 py-3 pr-12">
             <DialogTitle>Deep Research</DialogTitle>
             <DialogDescription className="sr-only">
-              Run multi-step research and manage saved snippets for chat RAG.
+              Research agent and snippets
             </DialogDescription>
           </DialogHeader>
-          <DialogBody className="bg-muted">
+          <DialogBody className="max-h-[min(78vh,640px)] overflow-y-auto bg-muted p-0">
             <ResearchShell embedded />
           </DialogBody>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={memoryOpen} onOpenChange={setMemoryOpen}>
-        <DialogContent showClose>
-          <DialogHeader>
+      <Dialog open={memoryDialogOpen} onOpenChange={setMemoryDialogOpen}>
+        <DialogContent showClose className="max-h-[min(90vh,720px)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b border-border px-4 py-3 pr-12">
             <DialogTitle>Memory</DialogTitle>
             <DialogDescription className="sr-only">
-              View and edit durable memory entries used by the chat agent.
+              Saved memory entries
             </DialogDescription>
           </DialogHeader>
-          <DialogBody className="bg-muted">
+          <DialogBody className="max-h-[min(78vh,640px)] overflow-y-auto bg-muted p-0">
             <MemoryShell embedded />
           </DialogBody>
         </DialogContent>

@@ -148,6 +148,10 @@ export const DevToolsPage = () => {
           ,{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
             DATABASE_URL
+          </code>{" "}
+          /{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">
+            POSTGRES_URL
           </code>
           , and{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
@@ -192,7 +196,14 @@ export const DevToolsPage = () => {
               >
                 Refresh state
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={signOut}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void signOut();
+                }}
+              >
                 Sign out
               </Button>
             </div>

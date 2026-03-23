@@ -14,8 +14,37 @@ export type ChatConversationMeta = {
 
 const CONVERSATIONS_INDEX_KEY = "caulfield.chat.conversations.v1";
 
+/** Active thread when Postgres is not configured; survives refresh. */
+const LOCAL_ACTIVE_CONV_KEY = "caulfield.chat.localActiveConversationId.v1";
+
+const localActiveConversationStorageKey = (): string =>
+  `${LOCAL_ACTIVE_CONV_KEY}:${getAccountStorageScope()}`;
+
 export const getChatHistoryIndexKey = (): string =>
   `${CONVERSATIONS_INDEX_KEY}:${getAccountStorageScope()}`;
+
+export const getOrCreateLocalConversationId = (): string => {
+  if (typeof window === "undefined") return "";
+  try {
+    const k = localActiveConversationStorageKey();
+    const existing = sessionStorage.getItem(k)?.trim();
+    if (existing && existing.length > 0) return existing;
+    const id = crypto.randomUUID();
+    sessionStorage.setItem(k, id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+};
+
+export const setLocalActiveConversationId = (id: string): void => {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(localActiveConversationStorageKey(), id);
+  } catch {
+    /* private mode */
+  }
+};
 
 export const listConversationMetas = (): ChatConversationMeta[] => {
   if (typeof window === "undefined") return [];
@@ -32,6 +61,26 @@ export const listConversationMetas = (): ChatConversationMeta[] => {
     );
   } catch {
     return [];
+  }
+};
+
+/** Merges into the scoped index; `anon` vs user scope are separate (no auto-migration). */
+export const upsertConversationMeta = (
+  meta: Omit<ChatConversationMeta, "accountScope">,
+): void => {
+  if (typeof window === "undefined") return;
+  const scope = getAccountStorageScope();
+  const full: ChatConversationMeta = {
+    ...meta,
+    accountScope: scope,
+  };
+  try {
+    const prev = listConversationMetas();
+    const rest = prev.filter((m) => m.id !== full.id);
+    const next = [full, ...rest];
+    localStorage.setItem(getChatHistoryIndexKey(), JSON.stringify(next));
+  } catch {
+    /* quota */
   }
 };
 

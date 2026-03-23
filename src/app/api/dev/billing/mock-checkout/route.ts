@@ -20,7 +20,7 @@ export const GET = async (req: Request) => {
 
   const session = await auth();
   if (!session?.user?.id) {
-    const signIn = new URL("/api/auth/signin", req.url);
+    const signIn = new URL("/sign-in", req.url);
     signIn.searchParams.set("callbackUrl", "/dev");
     return NextResponse.redirect(signIn);
   }
@@ -29,7 +29,7 @@ export const GET = async (req: Request) => {
     return NextResponse.json(
       {
         error:
-          "DATABASE_URL is not set. Set it and run db:push to test checkout locally.",
+          "Postgres is not configured. Set DATABASE_URL or connect Supabase on Vercel (POSTGRES_URL), then run db:push.",
       },
       { status: 400 },
     );

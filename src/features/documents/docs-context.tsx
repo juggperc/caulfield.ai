@@ -1,5 +1,7 @@
 "use client";
 
+import { scopedStorageKey } from "@/features/auth/storage-scope";
+import { useSession } from "@/features/auth/session-context";
 import type { JSONContent } from "@tiptap/core";
 import {
   createContext,
@@ -32,15 +34,20 @@ type DocsContextValue = {
 const DocsContext = createContext<DocsContextValue | null>(null);
 
 export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useSession();
   const [documents, setDocuments] = useState<WorkspaceDoc[]>([]);
   const [selectionUser, setSelectionUser] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  const storageKey = scopedStorageKey(DOCS_LOCAL_STORAGE_KEY);
+
   useEffect(() => {
+    if (!user?.id) return;
     queueMicrotask(() => {
       try {
-        const raw = localStorage.getItem(DOCS_LOCAL_STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (!raw) {
+          setDocuments([]);
           setHydrated(true);
           return;
         }
@@ -51,12 +58,12 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
       }
       setHydrated(true);
     });
-  }, []);
+  }, [user?.id, storageKey]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(DOCS_LOCAL_STORAGE_KEY, JSON.stringify(documents));
-  }, [documents, hydrated]);
+    if (!hydrated || !user?.id) return;
+    localStorage.setItem(storageKey, JSON.stringify(documents));
+  }, [documents, hydrated, storageKey, user?.id]);
 
   const sorted = useMemo(
     () => [...documents].sort((a, b) => b.updatedAt - a.updatedAt),

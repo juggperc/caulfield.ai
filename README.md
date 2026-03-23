@@ -124,10 +124,21 @@ Copy **[`.env.example`](./.env.example)** to **`.env.local`** (gitignored) for *
 
 When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** (GitHub or Google OAuth, **Dev login** in development, or **`AUTH_DEV_LOGIN=1`** to force Dev login even with OAuth configured). **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
 
-1. Run **`npm run db:push`** against your Postgres after setting `DATABASE_URL`.
+1. Run **`npm run db:push`** against your Postgres after the database URL is configured (see **Vercel + Supabase** below).
 2. Set **`AUTH_SECRET`**, OAuth client IDs/secrets, and deploy **`/api/webhooks/polar`** URL in Polar (using **Standard Webhooks** format with `v1` timestamped signatures). Set **`POLAR_WEBHOOK_SECRET`** to your endpoint secret (`whsec_...`).
 3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; checkout appends **`metadata[userId]`** for the webhook to attach subscriptions to users.
 4. **Rate Limiting**: Basic in-memory IP rate limiting protects the chat and research endpoints.
+
+### Vercel + Supabase (free tier)
+
+In the Vercel dashboard, add the **Supabase** integration (or paste env vars from Supabase). The app reads, in order:
+
+- **Runtime:** `DATABASE_URL`, then **`POSTGRES_URL`** (pooled — what Vercel/Supabase usually injects), then `SUPABASE_DATABASE_URL`.
+- **Migrations (`npm run db:push`):** `DATABASE_URL`, then **`POSTGRES_URL_NON_POOLING`** (direct session), then `POSTGRES_URL`.
+
+Transaction poolers require **disabled prepared statements**; the DB client detects Supabase pooler URLs (`:6543`, `pooler.supabase.com`, etc.) automatically. Override with **`DATABASE_PREPARE_STATEMENTS=1`** or **`0`** if needed.
+
+You do **not** have to duplicate the connection string as `DATABASE_URL` if `POSTGRES_URL` is already set by the integration.
 
 ### Dev testing (checkout, accounts, webhooks)
 

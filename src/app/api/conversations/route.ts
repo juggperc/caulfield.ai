@@ -6,8 +6,11 @@ import { NextResponse } from "next/server";
 
 export const GET = async () => {
   const session = await auth();
-  if (!db || !session?.user?.id) {
+  if (!db) {
     return NextResponse.json([]);
+  }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const rows = await db
     .select()

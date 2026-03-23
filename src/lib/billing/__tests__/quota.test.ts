@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { checkChatQuota, consumeChatQuery, getQuotaSnapshot } from "../quota";
+import { checkChatQuota } from "../quota";
 
 // Mock the DB layer so we can run these isolated
 vi.mock("@/lib/db", () => ({
@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({
 
 import { db } from "@/lib/db";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double for chained query builder
 const mockDb = db as any;
 
 describe("Quota Enforcement", () => {
@@ -59,6 +60,12 @@ describe("Quota Enforcement", () => {
     mockDb.select.mockReturnValueOnce({ from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ userId: "user_1", status: "active", currentPeriodEnd: futureDate }]) }) }) });
 
     const result = await checkChatQuota("user_1");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("allows chat when billable is false regardless of limits", async () => {
+    // Early return — must not queue select mocks or they leak to the next test.
+    const result = await checkChatQuota("user_1", { billable: false });
     expect(result).toEqual({ ok: true });
   });
 

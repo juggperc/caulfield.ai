@@ -3,11 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session-context";
 import { LogOut, UserIcon } from "lucide-react";
-import Link from "next/link";
-import { signIn, signOut } from "next-auth/react";
 
 export const AccountSettings = () => {
-  const { user, status } = useSession();
+  const { user, status, signIn, signOut } = useSession();
 
   if (status === "loading") {
     return (
@@ -25,7 +23,9 @@ export const AccountSettings = () => {
         <p className="text-sm text-muted-foreground mb-6">
           You need an account to view settings, manage your subscription, and access hosted AI features.
         </p>
-        <Button onClick={() => signIn()}>Sign in to Caulfield.ai</Button>
+        <Button type="button" onClick={() => signIn()}>
+          Sign in to Caulfield.ai
+        </Button>
       </div>
     );
   }
@@ -49,7 +49,14 @@ export const AccountSettings = () => {
             <span className="text-sm text-foreground">{user.email ?? user.id}</span>
           </div>
           <div className="pt-4">
-            <Button variant="outline" onClick={() => signOut()} className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void signOut();
+              }}
+              className="gap-2"
+            >
               <LogOut className="size-4" />
               Sign out
             </Button>
@@ -62,12 +69,12 @@ export const AccountSettings = () => {
             You can subscribe to increase your query limits and access standard models.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Link
+            <a
               href="/api/billing/checkout"
               className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
             >
               Subscribe ($20/mo)
-            </Link>
+            </a>
             {/* Future: Add billing portal link here when POLAR_ACCESS_TOKEN is implemented */}
             <Button variant="secondary" disabled>
               Manage Subscription (Coming soon)

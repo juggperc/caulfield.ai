@@ -1,5 +1,7 @@
 "use client";
 
+import { scopedStorageKey } from "@/features/auth/storage-scope";
+import { useSession } from "@/features/auth/session-context";
 import type { Note } from "@/features/notes/types";
 import {
   createContext,
@@ -33,16 +35,21 @@ type NotesContextValue = {
 const NotesContext = createContext<NotesContextValue | null>(null);
 
 export const NotesProvider = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useSession();
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectionUser, setSelectionUser] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
+  const storageKey = scopedStorageKey(NOTES_LOCAL_STORAGE_KEY);
+
   useEffect(() => {
+    if (!user?.id) return;
     queueMicrotask(() => {
       try {
-        const raw = localStorage.getItem(NOTES_LOCAL_STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (!raw) {
+          setNotes([]);
           setHydrated(true);
           return;
         }
@@ -55,12 +62,12 @@ export const NotesProvider = ({ children }: { children: React.ReactNode }) => {
       }
       setHydrated(true);
     });
-  }, []);
+  }, [user?.id, storageKey]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(NOTES_LOCAL_STORAGE_KEY, JSON.stringify(notes));
-  }, [notes, hydrated]);
+    if (!hydrated || !user?.id) return;
+    localStorage.setItem(storageKey, JSON.stringify(notes));
+  }, [notes, hydrated, storageKey, user?.id]);
 
   useEffect(() => {
     registerNotesGetter(() => notes);

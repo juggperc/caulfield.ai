@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@/features/auth/session-context";
 import { registerResearchGetter } from "@/features/research/research-chat-bridge";
 import {
   createContext,
@@ -23,10 +24,12 @@ type ResearchContextValue = {
 const ResearchContext = createContext<ResearchContextValue | null>(null);
 
 export const ResearchProvider = ({ children }: { readonly children: ReactNode }) => {
+  const { user } = useSession();
   const [snippets, setSnippets] = useState<ResearchSnippet[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (!user?.id) return;
     queueMicrotask(() => {
       try {
         setSnippets(loadResearchSnippets());
@@ -35,12 +38,12 @@ export const ResearchProvider = ({ children }: { readonly children: ReactNode })
       }
       setHydrated(true);
     });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !user?.id) return;
     saveResearchSnippets(snippets);
-  }, [snippets, hydrated]);
+  }, [snippets, hydrated, user?.id]);
 
   useEffect(() => {
     registerResearchGetter(() => snippets);

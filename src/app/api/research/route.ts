@@ -1,6 +1,10 @@
 import { auth } from "@/auth";
 import { checkChatQuota, consumeChatQuery } from "@/lib/billing/quota";
 import { isDbConfigured } from "@/lib/db";
+import {
+  getResearchModelId,
+  getServerOpenRouterKey,
+} from "@/lib/openrouter/server-models";
 import { createResearchAgentTools } from "@/features/research/research-agent-tools";
 import type { ResearchSnippet } from "@/features/research/research-types";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -15,36 +19,35 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   const session = await auth();
-  const serverKey = process.env.OPENROUTER_API_KEY?.trim();
-  const headerKey = req.headers.get("x-openrouter-key")?.trim();
-  const headerModel = req.headers.get("x-openrouter-model")?.trim();
-  const hosted = Boolean(serverKey);
-  const defaultModel =
-    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "x-ai/grok-3-fast";
-
-  const apiKey = hosted ? serverKey : headerKey;
-  const modelId = hosted ? headerModel || defaultModel : headerModel;
-
-  if (!apiKey || !modelId) {
+  const userId = session?.user?.id?.trim();
+  if (!userId) {
     return Response.json(
       {
-        error: hosted
-          ? "Server OpenRouter is not configured."
-          : "Missing OpenRouter API key or model. Configure them in settings.",
+        error: "Sign in to run research.",
+        code: "UNAUTHORIZED",
       },
-      { status: 400 },
+      { status: 401 },
     );
   }
 
+  const apiKey = getServerOpenRouterKey();
+  if (!apiKey) {
+    return Response.json(
+      {
+        error:
+          "AI is not configured on this server. Set OPENROUTER_API_KEY on the host.",
+        code: "OPENROUTER_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
+  }
+
+  const modelId = getResearchModelId();
+  const hosted = true;
+
   const quotaEnforced = hosted && isDbConfigured();
   if (quotaEnforced) {
-    if (!session?.user?.id) {
-      return Response.json(
-        { error: "Sign in to use hosted AI.", code: "UNAUTHORIZED" },
-        { status: 401 },
-      );
-    }
-    const qc = await checkChatQuota(session.user.id);
+    const qc = await checkChatQuota(userId, { billable: true });
     if (!qc.ok) {
       return Response.json(
         { error: qc.message, code: "QUOTA_EXCEEDED" },
@@ -98,9 +101,9 @@ Rules:
       stopWhen: stepCountIs(16),
     });
 
-    if (quotaEnforced && session?.user?.id) {
+    if (quotaEnforced) {
       try {
-        await consumeChatQuery(session.user.id);
+        await consumeChatQuery(userId, { billable: true });
       } catch (e) {
         console.error("[research] Failed to consume quota after generateText", e);
       }

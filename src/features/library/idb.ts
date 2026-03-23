@@ -1,5 +1,10 @@
-const DB_NAME = "caulfield.library.v1";
+const DB_NAME_PREFIX = "caulfield.library.v1";
 const DB_VERSION = 1;
+
+export const libraryDatabaseNameForScope = (scope: string): string => {
+  const s = scope.trim().slice(0, 120);
+  return s.length > 0 ? `${DB_NAME_PREFIX}:${s}` : `${DB_NAME_PREFIX}:anon`;
+};
 const META = "meta";
 const BLOBS = "blobs";
 
@@ -16,9 +21,9 @@ const txDone = (tx: IDBTransaction): Promise<void> =>
     tx.onabort = () => reject(tx.error ?? new Error("IDB transaction aborted"));
   });
 
-export const openLibraryDb = (): Promise<IDBDatabase> =>
+export const openLibraryDb = (dbName: string): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB_NAME, DB_VERSION);
+    const r = indexedDB.open(dbName, DB_VERSION);
     r.onerror = () => reject(r.error ?? new Error("IDB open failed"));
     r.onsuccess = () => resolve(r.result);
     r.onupgradeneeded = () => {

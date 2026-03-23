@@ -2,6 +2,7 @@
 
 import { AiWorkspaceProvider } from "@/features/ai-context-menu/ai-workspace-context";
 import { GlobalContextMenuLayer } from "@/features/ai-context-menu/GlobalContextMenuLayer";
+import { RequireAuth } from "@/features/auth/RequireAuth";
 import { SessionProvider } from "@/features/auth/session-context";
 import { OpenRouterUiProvider } from "@/features/openrouter/OpenRouterUiProvider";
 import { ChatShell } from "@/features/chat-ui/ChatShell";
@@ -30,46 +31,48 @@ export const AppLayout = () => {
 
   return (
     <SessionProvider>
-      <OpenRouterUiProvider>
-        <NotesProvider>
-          <MemoryProvider>
-            <ResearchProvider>
-              <DocsProvider>
-                <SheetsProvider>
-                  <LibraryProvider>
-                    <WorkspaceSnapshotsRegistrar />
-                    <WorkspaceLibrarySync />
-                    <AiWorkspaceProvider panel={panel} onPanelChange={setPanel}>
-                      <div className="flex min-h-screen bg-background text-foreground">
-                        <Sidebar activePanel={panel} onPanelChange={setPanel} />
-                        <main
-                          data-ai-workspace
-                          className={`flex min-h-screen min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
-                        >
-                          {panel === "chat" ? (
-                            <ChatShell />
-                          ) : panel === "notes" ? (
-                            <NotesShell />
-                          ) : panel === "docs" ? (
-                            <DocsShell />
-                          ) : panel === "library" ? (
-                            <LibraryShell />
-                          ) : panel === "marketplace" ? (
-                            <MarketplaceShell />
-                          ) : (
-                            <AccountSettings />
-                          )}
-                        </main>
-                      </div>
-                      <GlobalContextMenuLayer />
-                    </AiWorkspaceProvider>
-                  </LibraryProvider>
-                </SheetsProvider>
-              </DocsProvider>
-            </ResearchProvider>
-          </MemoryProvider>
-        </NotesProvider>
-      </OpenRouterUiProvider>
+      <RequireAuth>
+        <OpenRouterUiProvider>
+          <NotesProvider>
+            <MemoryProvider>
+              <ResearchProvider>
+                <DocsProvider>
+                  <SheetsProvider>
+                    <LibraryProvider>
+                      <WorkspaceSnapshotsRegistrar />
+                      <WorkspaceLibrarySync />
+                      <AiWorkspaceProvider panel={panel} onPanelChange={setPanel}>
+                        <div className="flex min-h-screen bg-background text-foreground">
+                          <Sidebar activePanel={panel} onPanelChange={setPanel} />
+                          <main
+                            data-ai-workspace
+                            className={`flex min-h-screen min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
+                          >
+                            {panel === "chat" ? (
+                              <ChatShell />
+                            ) : panel === "notes" ? (
+                              <NotesShell />
+                            ) : panel === "docs" ? (
+                              <DocsShell />
+                            ) : panel === "library" ? (
+                              <LibraryShell />
+                            ) : panel === "marketplace" ? (
+                              <MarketplaceShell />
+                            ) : (
+                              <AccountSettings />
+                            )}
+                          </main>
+                        </div>
+                        <GlobalContextMenuLayer />
+                      </AiWorkspaceProvider>
+                    </LibraryProvider>
+                  </SheetsProvider>
+                </DocsProvider>
+              </ResearchProvider>
+            </MemoryProvider>
+          </NotesProvider>
+        </OpenRouterUiProvider>
+      </RequireAuth>
     </SessionProvider>
   );
 };

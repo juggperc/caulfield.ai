@@ -43,7 +43,16 @@ const resetPaidIfPeriodExpired = async (
   return usage;
 };
 
-export const checkChatQuota = async (userId: string): Promise<QuotaCheck> => {
+export type QuotaOptions = {
+  /** When false (Free chat mode), skip limits and do not consume app quota. */
+  readonly billable?: boolean;
+};
+
+export const checkChatQuota = async (
+  userId: string,
+  options?: QuotaOptions,
+): Promise<QuotaCheck> => {
+  if (options?.billable === false) return { ok: true };
   if (!db) return { ok: true };
 
   await ensureUsageRow(userId);
@@ -115,7 +124,11 @@ export const checkChatQuota = async (userId: string): Promise<QuotaCheck> => {
   return { ok: true };
 };
 
-export const consumeChatQuery = async (userId: string): Promise<void> => {
+export const consumeChatQuery = async (
+  userId: string,
+  options?: QuotaOptions,
+): Promise<void> => {
+  if (options?.billable === false) return;
   if (!db) return;
 
   await ensureUsageRow(userId);
