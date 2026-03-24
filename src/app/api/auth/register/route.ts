@@ -3,12 +3,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { parsePassword, parseUsername } from "@/lib/auth/username";
+import { verifyBrowserProtection } from "@/lib/auth/browser-protection";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
 const bodySchema = z.object({
   username: z.string(),
   password: z.string(),
+  browserToken: z.string(),
+  honeypot: z.string().optional().default(""),
 });
 
 const isUniqueViolation = (err: unknown): boolean => {
@@ -46,7 +49,29 @@ export const POST = async (req: Request) => {
     );
   }
 
-  const { username: rawUser, password: rawPass } = parsedBody.data;
+  const {
+    username: rawUser,
+    password: rawPass,
+    browserToken,
+    honeypot,
+  } = parsedBody.data;
+
+  const browserProtection = await verifyBrowserProtection({
+    token: browserToken,
+    honeypot,
+  });
+  if (!browserProtection.ok) {
+    return NextResponse.json(
+      {
+        error:
+          browserProtection.reason === "too_fast"
+            ? "Please wait a moment and try again."
+            : "We could not verify your browser. Try again.",
+        code: "BROWSER_PROTECTION_FAILED",
+      },
+      { status: 400 },
+    );
+  }
 
   const u = parseUsername(rawUser);
   if (!u.ok) {

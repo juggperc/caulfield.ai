@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
+import { verifyBrowserProtection } from "@/lib/auth/browser-protection";
 import { parseUsername } from "@/lib/auth/username";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -82,14 +83,23 @@ const credentialsProvider = Credentials({
   credentials: {
     username: { label: "Username", type: "text" },
     password: { label: "Password", type: "password" },
+    browserToken: { label: "Browser token", type: "text" },
+    website: { label: "Website", type: "text" },
   },
   authorize: async (credentials) => {
     if (!db) return null;
 
     const usernameRaw = credentials?.username?.toString().trim();
     const password = credentials?.password?.toString();
+    const browserToken = credentials?.browserToken?.toString() ?? "";
+    const website = credentials?.website?.toString() ?? "";
 
     if (!usernameRaw || !password) return null;
+    const browserProtection = await verifyBrowserProtection({
+      token: browserToken,
+      honeypot: website,
+    });
+    if (!browserProtection.ok) return null;
 
     const parsed = parseUsername(usernameRaw);
     if (!parsed.ok) return null;

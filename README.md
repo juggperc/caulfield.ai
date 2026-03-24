@@ -69,7 +69,7 @@ Powered by **[OpenRouter](https://openrouter.ai/)** so you can swap models witho
 ### Accounts & chat history
 
 - **`SessionProvider`** (`src/features/auth/session-context.tsx`) — **NextAuth (Auth.js)** session for the client; sign-in/out from the sidebar.
-- **Sign-in:** **Username and password** with **ALTCHA** proof-of-work (`/api/altcha/challenge`, `/api/auth/register`). OAuth (GitHub/Google) is not used. Auth.js uses **JWT sessions** for credentials (required by the library); user rows still live in Postgres. On **Vercel**, set **`AUTH_URL`** to your deployment URL (e.g. `https://your-project.vercel.app`) so cookies and auth routes resolve correctly.
+- **Sign-in:** **Username and password** with lightweight browser-based bot protection (signed submit token + honeypot on the auth forms). OAuth (GitHub/Google) is not used. Auth.js uses **JWT sessions** for credentials (required by the library); user rows still live in Postgres. On **Vercel**, set **`AUTH_URL`** to your deployment URL (e.g. `https://your-project.vercel.app`) so cookies and auth routes resolve correctly.
 - **`getAccountStorageScope()`** (`src/features/auth/storage-scope.ts`) — namespaces **localStorage** keys (`anon` until sign-in).
 - **Server history:** With **`DATABASE_URL`** set, **`ChatShell`** loads the signed-in user’s conversations after auth resolves (including **sign-in after the first paint**), persists messages to **`/api/conversations/...`**, and enforces **quota** on **`/api/chat`** when **`OPENROUTER_API_KEY`** is set.
 
@@ -119,16 +119,16 @@ npm run start
 
 Copy **[`.env.example`](./.env.example)** to **`.env.local`** (gitignored) for **auth, database, hosted OpenRouter, and Polar**. See variable comments there.
 
-**Local dev without `.env.local`:** `npm run dev` uses a built-in **`AUTH_SECRET`**. You still need **`DATABASE_URL`**, **`ALTCHA_HMAC_KEY`**, and **`npm run db:push`** for username/password sign-in, or set **`AUTH_DEV_LOGIN=1`** for passwordless **Dev login** (development only). Set **`ALTCHA_DEV_BYPASS=1`** to skip ALTCHA verification locally (the challenge endpoint still requires **`ALTCHA_HMAC_KEY`**). Set **`AUTH_SECRET`** in `.env.local` for a stable secret across restarts.
+**Local dev without `.env.local`:** `npm run dev` uses a built-in **`AUTH_SECRET`**. You still need **`DATABASE_URL`** and **`npm run db:push`** for username/password sign-in, or set **`AUTH_DEV_LOGIN=1`** for passwordless **Dev login** (development only). Set **`AUTH_SECRET`** in `.env.local` for a stable secret across restarts.
 
 ### Hosted mode (recommended for production)
 
-When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** with **username and password** (and **ALTCHA**), unless you use **`AUTH_DEV_LOGIN=1`** in development for **Dev login** only.
+When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** use that key on the server (clients do not send your platform key). If **`DATABASE_URL`** is also set, users must **sign in** with **username and password**, unless you use **`AUTH_DEV_LOGIN=1`** in development for **Dev login** only.
 
 **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
 
 1. Run **`npm run db:push`** against your Postgres after the database URL is configured (see **Vercel + Supabase** below).
-2. Set **`AUTH_SECRET`**, **`ALTCHA_HMAC_KEY`**, **`AUTH_URL`** (production), and deploy **`/api/webhooks/polar`** URL in Polar (using **Standard Webhooks** format with `v1` timestamped signatures). Set **`POLAR_WEBHOOK_SECRET`** to your endpoint secret (`whsec_...`).
+2. Set **`AUTH_SECRET`**, **`AUTH_URL`** (production), and deploy **`/api/webhooks/polar`** URL in Polar (using **Standard Webhooks** format with `v1` timestamped signatures). Set **`POLAR_WEBHOOK_SECRET`** to your endpoint secret (`whsec_...`).
 3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; checkout appends **`metadata[userId]`** for the webhook to attach subscriptions to users.
 4. **Rate Limiting**: Basic in-memory IP rate limiting protects the chat and research endpoints.
 

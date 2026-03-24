@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchBrowserProtectionToken } from "@/lib/auth/browser-protection-client";
 import { useSession } from "@/features/auth/session-context";
 import { Logo } from "@/features/sidebar/components/Logo";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,14 @@ const safeCallbackUrl = (raw: string | null): string => {
   if (!raw || !raw.startsWith("/")) return "/";
   if (raw.startsWith("//")) return "/";
   return raw;
+};
+
+const getSuspiciousSubmitMessage = (error: unknown) => {
+  if (typeof error !== "string") return null;
+  if (error === "AccessDenied") {
+    return "Please wait a moment and try again.";
+  }
+  return null;
 };
 
 type AppConfigJson = {
@@ -44,6 +53,8 @@ export const SignInClient = () => {
   const [panel, setPanel] = useState<"signin" | "register">("signin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [botField, setBotField] = useState("");
+  const [browserProtectionToken, setBrowserProtectionToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -109,11 +120,33 @@ export const SignInClient = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     setFormError(null);
+    setBotField("");
+    void fetchBrowserProtectionToken().then((token) => {
+      if (!cancelled) {
+        setBrowserProtectionToken(token);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [panel]);
 
   const hasCredentialsProvider = providerIds.includes("credentials");
   const hasDevProvider = providerIds.includes("dev");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchBrowserProtectionToken().then((token) => {
+      if (!cancelled) {
+        setBrowserProtectionToken(token);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleDevSignIn = useCallback(() => {
     void signIn("dev", { callbackUrl, redirect: true });
@@ -132,11 +165,17 @@ export const SignInClient = () => {
         const res = await signIn("credentials", {
           username: username.trim(),
           password,
+          browserToken: browserProtectionToken,
+          website: botField,
           callbackUrl,
           redirect: false,
         });
         if (res?.error) {
-          setFormError("Invalid username or password.");
+          setFormError(
+            getSuspiciousSubmitMessage(res.error) ??
+              "Invalid username or password.",
+          );
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         if (res?.ok) {
@@ -149,6 +188,8 @@ export const SignInClient = () => {
     },
     [
       callbackUrl,
+      botField,
+      browserProtectionToken,
       hasCredentialsProvider,
       password,
       router,
@@ -168,6 +209,8 @@ export const SignInClient = () => {
           body: JSON.stringify({
             username: username.trim(),
             password,
+            browserToken: browserProtectionToken,
+            honeypot: botField,
           }),
         });
         if (!res.ok) {
@@ -181,17 +224,24 @@ export const SignInClient = () => {
             /* keep default */
           }
           setFormError(message);
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         const signRes = await signIn("credentials", {
           username: username.trim(),
           password,
+          browserToken: browserProtectionToken,
+          website: botField,
           callbackUrl,
           redirect: false,
         });
         if (signRes?.error) {
-          setFormError("Account created. Sign in with your new credentials.");
+          setFormError(
+            getSuspiciousSubmitMessage(signRes.error) ??
+              "Account created. Sign in with your new credentials.",
+          );
           setPanel("signin");
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         if (signRes?.ok) {
@@ -200,12 +250,15 @@ export const SignInClient = () => {
         }
       } catch {
         setFormError("Something went wrong. Try again.");
+        setBrowserProtectionToken(await fetchBrowserProtectionToken());
       } finally {
         setBusy(false);
       }
     },
     [
       callbackUrl,
+      botField,
+      browserProtectionToken,
       password,
       router,
       username,
@@ -319,6 +372,18 @@ export const SignInClient = () => {
                   }
                   noValidate
                 >
+                  <input
+                    type="text"
+                    name="company"
+                    value={botField}
+                    onChange={(ev) => {
+                      setBotField(ev.target.value);
+                    }}
+                    className="hidden"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="signin-username">Username</Label>
                     <Input
