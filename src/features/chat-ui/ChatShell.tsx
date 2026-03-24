@@ -442,6 +442,18 @@ const ChatShellInner = ({
     setWebSearchOverride(webSearchEnabled);
   }, [webSearchEnabled]);
 
+  useEffect(() => {
+    const onSyncWebSearch = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled?: boolean }>;
+      if (typeof ce.detail?.enabled === "boolean") {
+        setWebSearchEnabled(ce.detail.enabled);
+      }
+    };
+    window.addEventListener("caulfield:sync-web-search", onSyncWebSearch);
+    return () =>
+      window.removeEventListener("caulfield:sync-web-search", onSyncWebSearch);
+  }, []);
+
   const handleToggleWebSearch = useMemo(
     () => () => setWebSearchEnabled((p) => !p),
     [],

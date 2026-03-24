@@ -126,8 +126,34 @@ export const readChatRagMemoryEnabled = (): boolean => {
   return localStorage.getItem(STORAGE_KEYS.chatRagMemoryEnabled) !== "0";
 };
 
+export const writeChatRagMemoryEnabled = (enabled: boolean): void => {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      localStorage.removeItem(STORAGE_KEYS.chatRagMemoryEnabled);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.chatRagMemoryEnabled, "0");
+    }
+  } catch {
+    /* quota */
+  }
+};
+
 /** Default on when unset; only explicit `"0"` disables. */
 export const readChatRagResearchEnabled = (): boolean => {
   if (typeof window === "undefined") return true;
   return localStorage.getItem(STORAGE_KEYS.chatRagResearchEnabled) !== "0";
+};
+
+export const writeChatRagResearchEnabled = (enabled: boolean): void => {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      localStorage.removeItem(STORAGE_KEYS.chatRagResearchEnabled);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.chatRagResearchEnabled, "0");
+    }
+  } catch {
+    /* quota */
+  }
 };

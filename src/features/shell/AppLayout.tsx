@@ -20,20 +20,21 @@ import {
   MAIN_OFFSET_CLASS,
   Sidebar,
 } from "@/features/sidebar/components/Sidebar";
+import { isAppPanel } from "@/features/playbooks/playbook-events";
 import type { AppPanel } from "@/features/shell/panel";
 import { MobileWorkspaceBar } from "@/features/shell/MobileWorkspaceBar";
 import { WorkspaceLibrarySync } from "@/features/shell/WorkspaceLibrarySync";
 import { WorkspaceSnapshotsRegistrar } from "@/features/shell/WorkspaceSnapshotsRegistrar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export const AppLayout = () => {
   const [panel, setPanel] = useState<AppPanel>("chat");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const handlePanelChange = (next: AppPanel) => {
+  const handlePanelChange = useCallback((next: AppPanel) => {
     setPanel(next);
     setMobileNavOpen(false);
-  };
+  }, []);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -43,6 +44,19 @@ export const AppLayout = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileNavOpen]);
+
+  useEffect(() => {
+    const onWorkspacePanel = (e: Event) => {
+      const ce = e as CustomEvent<{ panel?: unknown }>;
+      const p = ce.detail?.panel;
+      if (isAppPanel(p)) {
+        handlePanelChange(p);
+      }
+    };
+    window.addEventListener("caulfield:workspace-panel", onWorkspacePanel);
+    return () =>
+      window.removeEventListener("caulfield:workspace-panel", onWorkspacePanel);
+  }, [handlePanelChange]);
 
   return (
     <SessionProvider>

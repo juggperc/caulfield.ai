@@ -18,17 +18,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  STORAGE_KEYS,
   readChatMode,
   readChatRagMemoryEnabled,
   readChatRagResearchEnabled,
   writeChatMode,
+  writeChatRagMemoryEnabled,
+  writeChatRagResearchEnabled,
   type StoredChatMode,
 } from "@/features/ai-agent/storage";
+import { applyPlaybook } from "@/features/playbooks/apply-playbook";
+import { BUILT_IN_PLAYBOOKS } from "@/features/playbooks/built-in-playbooks";
+import { PlaybooksManageDialog } from "@/features/playbooks/PlaybooksManageDialog";
+import { readUserPlaybooks } from "@/features/playbooks/user-playbooks-storage";
 import type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 import { cn } from "@/lib/utils";
-import { Brain, Check, Microscope, Search, Sparkles, Zap } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Brain, Check, LayoutTemplate, Microscope, Search, Sparkles, Zap } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 type PaletteProps = {
   readonly open: boolean;
@@ -49,6 +54,19 @@ export const WorkspaceCommandPalette = ({
 }: PaletteProps) => {
   const [, setTick] = useState(0);
   const refreshLocal = useCallback(() => setTick((n) => n + 1), []);
+  const [managePlaybooksOpen, setManagePlaybooksOpen] = useState(false);
+  const [playbookListNonce, setPlaybookListNonce] = useState(0);
+
+  const mergedPlaybooks = useMemo(() => {
+    void playbookListNonce;
+    if (!open) return [...BUILT_IN_PLAYBOOKS];
+    return [...BUILT_IN_PLAYBOOKS, ...readUserPlaybooks()];
+  }, [open, playbookListNonce]);
+
+  const handleUserPlaybooksChanged = useCallback(() => {
+    setPlaybookListNonce((n) => n + 1);
+    onWorkspaceUpdated();
+  }, [onWorkspaceUpdated]);
 
   const mode = readChatMode();
   const memOn = readChatRagMemoryEnabled();
@@ -66,22 +84,14 @@ export const WorkspaceCommandPalette = ({
 
   const handleToggleMemory = useCallback(() => {
     if (typeof window === "undefined") return;
-    if (readChatRagMemoryEnabled()) {
-      localStorage.setItem(STORAGE_KEYS.chatRagMemoryEnabled, "0");
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.chatRagMemoryEnabled);
-    }
+    writeChatRagMemoryEnabled(!readChatRagMemoryEnabled());
     onWorkspaceUpdated();
     refreshLocal();
   }, [onWorkspaceUpdated, refreshLocal]);
 
   const handleToggleResearchRag = useCallback(() => {
     if (typeof window === "undefined") return;
-    if (readChatRagResearchEnabled()) {
-      localStorage.setItem(STORAGE_KEYS.chatRagResearchEnabled, "0");
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.chatRagResearchEnabled);
-    }
+    writeChatRagResearchEnabled(!readChatRagResearchEnabled());
     onWorkspaceUpdated();
     refreshLocal();
   }, [onWorkspaceUpdated, refreshLocal]);
@@ -96,7 +106,23 @@ export const WorkspaceCommandPalette = ({
     onOpenMemory();
   }, [onOpenChange, onOpenMemory]);
 
+  const handleSelectPlaybook = useCallback(
+    (entryId: string) => {
+      const entry = mergedPlaybooks.find((p) => p.id === entryId);
+      if (!entry) return;
+      applyPlaybook(entry, { onWorkspaceUpdated });
+      onOpenChange(false);
+    },
+    [mergedPlaybooks, onOpenChange, onWorkspaceUpdated],
+  );
+
+  const handleOpenManagePlaybooks = useCallback(() => {
+    onOpenChange(false);
+    setManagePlaybooksOpen(true);
+  }, [onOpenChange]);
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-lg gap-0 overflow-hidden p-0 sm:max-w-lg"
@@ -223,10 +249,43 @@ export const WorkspaceCommandPalette = ({
                   </div>
                 </CommandItem>
               </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup heading="Templates & playbooks">
+                {mergedPlaybooks.map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    value={`template playbook ${p.title} ${p.description ?? ""} ${p.prompt.slice(0, 240)}`}
+                    onSelect={() => handleSelectPlaybook(p.id)}
+                    className="gap-2"
+                  >
+                    <LayoutTemplate className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-foreground">{p.title}</div>
+                      {p.description ? (
+                        <div className="text-[11px] text-muted-foreground">{p.description}</div>
+                      ) : null}
+                    </div>
+                  </CommandItem>
+                ))}
+                <CommandItem
+                  value="manage playbooks templates custom"
+                  onSelect={handleOpenManagePlaybooks}
+                  className="gap-2"
+                >
+                  <LayoutTemplate className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="flex-1 font-medium">Manage playbooks…</span>
+                </CommandItem>
+              </CommandGroup>
             </CommandList>
           </Command>
         </DialogBody>
       </DialogContent>
     </Dialog>
+    <PlaybooksManageDialog
+      open={managePlaybooksOpen}
+      onOpenChange={setManagePlaybooksOpen}
+      onUserPlaybooksChanged={handleUserPlaybooksChanged}
+    />
+    </>
   );
 };
