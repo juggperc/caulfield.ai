@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSession } from "@/features/auth/session-context";
+import { Logo } from "@/features/sidebar/components/Logo";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -242,18 +243,14 @@ const PremiumDialogInner = ({ onSnooze }: { readonly onSnooze: () => void }) => 
 
   return (
     <>
-      <DialogHeader className="border-b border-border px-4 pb-3 pr-12 pt-4">
-        <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="size-4" aria-hidden />
-          </span>
-          <div>
-            <DialogTitle>Caulfield Premium</DialogTitle>
-            <DialogDescription className="mt-1">
-              More queries, full workspace power, same focused UI.
-            </DialogDescription>
-          </div>
-        </div>
+      <div className="overflow-hidden rounded-t-xl">
+        <Logo variant="auth" />
+      </div>
+      <DialogHeader className="border-b border-border px-4 pb-3 pr-12 pt-5">
+        <DialogTitle>Caulfield Premium</DialogTitle>
+        <DialogDescription className="mt-1">
+          More queries, full workspace power, same focused UI.
+        </DialogDescription>
       </DialogHeader>
       <DialogBody className="flex flex-col gap-6 px-4 py-5">
         <div>
