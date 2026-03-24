@@ -1,3 +1,4 @@
+import { GlobalSplashScreen } from "@/components/global-splash-screen";
 import { SiteFooter } from "@/components/site-footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata, Viewport } from "next";
@@ -38,6 +39,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
+          <GlobalSplashScreen />
           <div className="flex min-h-full flex-col">
             <div className="flex min-h-0 flex-1 flex-col">{children}</div>
             <SiteFooter />
