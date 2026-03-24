@@ -13,6 +13,9 @@ import {
   type ReactNode,
 } from "react";
 
+const CHAT_MODE_LABEL_THINKING = "Thinking";
+const CHAT_MODE_LABEL_FREE = "Free";
+
 export type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 
 type OpenRouterUiContextValue = {
@@ -41,31 +44,11 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
   const [researchDialogOpen, setResearchDialogOpen] = useState(false);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [selectionEpoch, setSelectionEpoch] = useState(0);
-  const [chatModels, setChatModels] = useState<ChatModelsUiConfig>({
-    thinkingLabel: "Thinking",
-    freeLabel: "Free",
-    loaded: false,
+  const [chatModels] = useState<ChatModelsUiConfig>({
+    thinkingLabel: CHAT_MODE_LABEL_THINKING,
+    freeLabel: CHAT_MODE_LABEL_FREE,
+    loaded: true,
   });
-
-  useEffect(() => {
-    void fetch("/api/config", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(
-        (j: {
-          labels?: { thinking?: string; free?: string };
-        } | null) => {
-          if (!j?.labels) return;
-          const t = j.labels.thinking?.trim();
-          const f = j.labels.free?.trim();
-          setChatModels({
-            loaded: true,
-            thinkingLabel: t || "Thinking",
-            freeLabel: f || "Free",
-          });
-        },
-      )
-      .catch(() => {});
-  }, []);
 
   const openWorkspacePalette = useCallback(() => {
     setPaletteOpen(true);
@@ -78,8 +61,8 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
   const getChatModeShortLabel = useCallback((): string => {
     void selectionEpoch;
     const mode = readChatMode();
-    return mode === "free" ? chatModels.freeLabel : chatModels.thinkingLabel;
-  }, [selectionEpoch, chatModels]);
+    return mode === "free" ? CHAT_MODE_LABEL_FREE : CHAT_MODE_LABEL_THINKING;
+  }, [selectionEpoch]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

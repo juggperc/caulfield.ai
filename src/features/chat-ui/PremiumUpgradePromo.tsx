@@ -37,7 +37,7 @@ type QuotaJson = {
 const BENEFITS = [
   {
     title: "100 hosted queries every month",
-    body: "Use Grok-class models and full tool routing without burning through a tiny free bucket.",
+    body: "Use Thinking mode and full tool routing without burning through a tiny free bucket.",
   },
   {
     title: "Workspace that stays with you",
