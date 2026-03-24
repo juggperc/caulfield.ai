@@ -98,6 +98,19 @@ export const SignInClient = () => {
     };
   }, []);
 
+  const getAltchaDomPayload = useCallback(() => {
+    const widget = altchaHostRef.current as
+      | (HTMLElement & { shadowRoot?: ShadowRoot | null })
+      | null;
+    const hiddenInput =
+      (widget?.shadowRoot?.querySelector("input[type='hidden']") as
+        | HTMLInputElement
+        | null) ??
+      (widget?.querySelector("input[type='hidden']") as HTMLInputElement | null);
+    const payload = hiddenInput?.value?.trim();
+    return payload ? payload : null;
+  }, []);
+
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
   useEffect(() => {
     altchaPayloadRef.current = altchaPayload;
@@ -275,6 +288,35 @@ export const SignInClient = () => {
 
     el.addEventListener("statechange", handleStateChange);
     el.addEventListener("verified", handleVerified);
+
+    const initialPayload = getAltchaDomPayload();
+    const widgetState =
+      typeof (
+        el as HTMLElement & {
+          getState?: () => string;
+        }
+      ).getState === "function"
+        ? (
+            el as HTMLElement & {
+              getState: () => string;
+            }
+          ).getState()
+        : null;
+    if (widgetState === "verified" && initialPayload) {
+      // #region agent log
+      logClientDebug({
+        hypothesisId: "F",
+        location: "src/app/sign-in/sign-in-client.tsx:useLayoutEffect",
+        message: "Recovered ALTCHA payload from widget DOM after listener attach",
+        data: {
+          payloadLength: initialPayload.length,
+          ...getAltchaWidgetSnapshot(),
+        },
+      });
+      // #endregion
+      setAltchaPayload(initialPayload);
+    }
+
     return () => {
       el.removeEventListener("statechange", handleStateChange);
       el.removeEventListener("verified", handleVerified);
@@ -283,6 +325,7 @@ export const SignInClient = () => {
     altchaDevBypass,
     altchaKey,
     altchaScriptReady,
+    getAltchaDomPayload,
     getAltchaWidgetSnapshot,
     logClientDebug,
   ]);
@@ -291,6 +334,22 @@ export const SignInClient = () => {
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setFormError(null);
+      const effectiveAltchaPayload =
+        altchaDevBypass ? "" : (altchaPayload ?? getAltchaDomPayload() ?? "");
+      if (!altchaPayload && effectiveAltchaPayload) {
+        // #region agent log
+        logClientDebug({
+          hypothesisId: "F",
+          location: "src/app/sign-in/sign-in-client.tsx:handleSubmitSignIn",
+          message: "Recovered ALTCHA payload from widget DOM during submit",
+          data: {
+            payloadLength: effectiveAltchaPayload.length,
+            ...getAltchaWidgetSnapshot(),
+          },
+        });
+        // #endregion
+        setAltchaPayload(effectiveAltchaPayload);
+      }
       // #region agent log
       logClientDebug({
         hypothesisId: "C",
@@ -301,6 +360,8 @@ export const SignInClient = () => {
           hasCredentialsProvider,
           hasAltchaPayload: Boolean(altchaPayload),
           payloadLength: altchaPayload?.length ?? 0,
+          hasEffectiveAltchaPayload: Boolean(effectiveAltchaPayload),
+          effectivePayloadLength: effectiveAltchaPayload.length,
           ...getAltchaWidgetSnapshot(),
         },
       });
@@ -309,7 +370,7 @@ export const SignInClient = () => {
         setFormError("Username/password sign-in is not available.");
         return;
       }
-      if (requireAltcha && !altchaPayload) {
+      if (requireAltcha && !effectiveAltchaPayload) {
         setFormError("Complete the verification challenge first.");
         return;
       }
@@ -318,7 +379,7 @@ export const SignInClient = () => {
         const res = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          altcha: effectiveAltchaPayload,
           callbackUrl,
           redirect: false,
         });
@@ -339,6 +400,7 @@ export const SignInClient = () => {
       altchaDevBypass,
       altchaPayload,
       callbackUrl,
+      getAltchaDomPayload,
       hasCredentialsProvider,
       getAltchaWidgetSnapshot,
       logClientDebug,
@@ -354,6 +416,22 @@ export const SignInClient = () => {
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setFormError(null);
+      const effectiveAltchaPayload =
+        altchaDevBypass ? "" : (altchaPayload ?? getAltchaDomPayload() ?? "");
+      if (!altchaPayload && effectiveAltchaPayload) {
+        // #region agent log
+        logClientDebug({
+          hypothesisId: "F",
+          location: "src/app/sign-in/sign-in-client.tsx:handleSubmitRegister",
+          message: "Recovered ALTCHA payload from widget DOM during submit",
+          data: {
+            payloadLength: effectiveAltchaPayload.length,
+            ...getAltchaWidgetSnapshot(),
+          },
+        });
+        // #endregion
+        setAltchaPayload(effectiveAltchaPayload);
+      }
       // #region agent log
       logClientDebug({
         hypothesisId: "C",
@@ -363,11 +441,13 @@ export const SignInClient = () => {
           requireAltcha,
           hasAltchaPayload: Boolean(altchaPayload),
           payloadLength: altchaPayload?.length ?? 0,
+          hasEffectiveAltchaPayload: Boolean(effectiveAltchaPayload),
+          effectivePayloadLength: effectiveAltchaPayload.length,
           ...getAltchaWidgetSnapshot(),
         },
       });
       // #endregion
-      if (requireAltcha && !altchaPayload) {
+      if (requireAltcha && !effectiveAltchaPayload) {
         setFormError("Complete the verification challenge first.");
         return;
       }
@@ -379,7 +459,7 @@ export const SignInClient = () => {
           body: JSON.stringify({
             username: username.trim(),
             password,
-            altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+            altcha: effectiveAltchaPayload,
           }),
         });
         if (!res.ok) {
@@ -399,7 +479,7 @@ export const SignInClient = () => {
         const signRes = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          altcha: effectiveAltchaPayload,
           callbackUrl,
           redirect: false,
         });
@@ -424,6 +504,7 @@ export const SignInClient = () => {
       altchaDevBypass,
       altchaPayload,
       callbackUrl,
+      getAltchaDomPayload,
       getAltchaWidgetSnapshot,
       logClientDebug,
       password,
