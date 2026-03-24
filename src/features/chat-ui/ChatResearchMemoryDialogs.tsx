@@ -14,7 +14,7 @@ import { useOpenRouterUi } from "@/features/openrouter/OpenRouterUiProvider";
 import { ResearchShell } from "@/features/research/ResearchShell";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Brain, Microscope } from "lucide-react";
+import { BookOpen, Brain, Microscope } from "lucide-react";
 
 export const ChatResearchMemoryDialogs = () => {
   const {
@@ -39,10 +39,10 @@ export const ChatResearchMemoryDialogs = () => {
             buttonVariants({ variant: "ghost", size: "icon-sm" }),
             "text-muted-foreground",
           )}
-          aria-label="Open research snippets"
+          aria-label="Open research snippets library"
           onClick={openKnowledgeSnippets}
         >
-          <Microscope className="size-4" aria-hidden />
+          <BookOpen className="size-4" aria-hidden />
         </button>
       </motion.div>
       <motion.div
