@@ -145,7 +145,8 @@ export const isDocEditsOutput = (value: unknown): value is DocEditsOutput => {
 export type SheetCellUpdate = {
   r: number;
   c: number;
-  value: string;
+  value?: string;
+  formula?: string;
 };
 
 export type SheetCellsOutput = {

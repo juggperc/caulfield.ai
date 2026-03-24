@@ -8,22 +8,45 @@ import {
   DEFAULT_SHEET_COLS,
   DEFAULT_SHEET_ROWS,
 } from "./sheets-constants";
-import type { WorkspaceSheet } from "./sheets-types";
+import {
+  createCellInput,
+  emptySheetCell,
+  type WorkspaceSheet,
+  type WorkspaceSheetCell,
+} from "./sheets-types";
+import { evaluateSheetRows } from "./sheet-formulas";
 
 const clampCell = (s: string) =>
   typeof s === "string" ? s.slice(0, MAX_CELL_LENGTH) : "";
 
-const padRow = (row: unknown[], cols: number): string[] => {
-  const out: string[] = [];
+const normalizeCell = (raw: unknown): WorkspaceSheetCell => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return emptySheetCell();
+  }
+
+  const candidate = raw as { input?: unknown; display?: unknown };
+  const input =
+    typeof candidate.input === "string"
+      ? candidate.input
+      : typeof candidate.display === "string"
+        ? candidate.display
+        : "";
+
+  return createCellInput(clampCell(input));
+};
+
+const padRow = (row: unknown[], cols: number): WorkspaceSheetCell[] => {
+  const out: WorkspaceSheetCell[] = [];
   for (let c = 0; c < cols; c++) {
-    const v = row[c];
-    out.push(clampCell(typeof v === "string" ? v : String(v ?? "")));
+    out.push(normalizeCell(row[c]));
   }
   return out;
 };
 
-const emptyGrid = (rows: number, cols: number): string[][] =>
-  Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
+const emptyGrid = (rows: number, cols: number): WorkspaceSheetCell[][] =>
+  Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => emptySheetCell()),
+  );
 
 export const normalizeWorkspaceSheet = (raw: unknown): WorkspaceSheet | null => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -42,7 +65,10 @@ export const normalizeWorkspaceSheet = (raw: unknown): WorkspaceSheet | null => 
       ? o.revision
       : 0;
 
-  let rows: string[][] = emptyGrid(DEFAULT_SHEET_ROWS, DEFAULT_SHEET_COLS);
+  let rows: WorkspaceSheetCell[][] = emptyGrid(
+    DEFAULT_SHEET_ROWS,
+    DEFAULT_SHEET_COLS,
+  );
   if (Array.isArray(o.rows)) {
     const src = o.rows.slice(0, WORKSPACE_SHEET_ROWS) as unknown[];
     rows = src.map((row) => {
@@ -60,7 +86,7 @@ export const normalizeWorkspaceSheet = (raw: unknown): WorkspaceSheet | null => 
     createdAt,
     updatedAt,
     revision,
-    rows,
+    rows: evaluateSheetRows(rows),
   };
 };
 

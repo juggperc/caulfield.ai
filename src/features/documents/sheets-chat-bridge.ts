@@ -41,6 +41,9 @@ const truncateRows = (
 ): string[][] =>
   rows.slice(0, maxR).map((r) => r.slice(0, maxC));
 
+const getDisplayRows = (sheet: WorkspaceSheet): string[][] =>
+  sheet.rows.map((row) => row.map((cell) => cell.display));
+
 export const getSheetsChatPayload = (): {
   activeSheet: ActiveSheetPayload | undefined;
   workspaceSheets: WorkspaceSheetBrief[];
@@ -57,7 +60,7 @@ export const getSheetsChatPayload = (): {
     id: s.id,
     title: s.title,
     revision: s.revision,
-    csvPreview: s.rows
+    csvPreview: getDisplayRows(s)
       .slice(0, 12)
       .map((r) => r.slice(0, 12).join("\t"))
       .join("\n")
@@ -70,7 +73,7 @@ export const getSheetsChatPayload = (): {
           id: active.id,
           title: active.title,
           revision: active.revision,
-          rows: truncateRows(active.rows, 60, 16),
+          rows: truncateRows(getDisplayRows(active), 60, 16),
         }
       : undefined,
     workspaceSheets: brief,

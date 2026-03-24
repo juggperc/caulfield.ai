@@ -11,11 +11,12 @@ import {
   useState,
 } from "react";
 import { SHEETS_LOCAL_STORAGE_KEY } from "./sheets-constants";
+import { evaluateSheetRows } from "./sheet-formulas";
 import {
   normalizeWorkspaceSheet,
   normalizeWorkspaceSheetList,
 } from "./sheets-normalize";
-import type { WorkspaceSheet } from "./sheets-types";
+import type { WorkspaceSheet, WorkspaceSheetCell } from "./sheets-types";
 
 type SheetsContextValue = {
   sheets: WorkspaceSheet[];
@@ -25,12 +26,16 @@ type SheetsContextValue = {
   createSheet: () => void;
   deleteSheet: (id: string) => void;
   updateSheetTitle: (id: string, title: string) => void;
-  updateCell: (id: string, r: number, c: number, value: string) => void;
+  updateCellInput: (id: string, r: number, c: number, raw: string) => void;
+  replaceSheetGrid: (id: string, rows: WorkspaceSheetCell[][]) => void;
   applyAgentSheetUpdate: (
     id: string,
-    rows: string[][],
+    rows: WorkspaceSheetCell[][],
     newRevision: number,
   ) => void;
+  importSheet: (sheet: WorkspaceSheet) => void;
+  addSheetRow: (id: string) => void;
+  addSheetColumn: (id: string) => void;
 };
 
 const SheetsContext = createContext<SheetsContextValue | null>(null);
@@ -123,39 +128,57 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }, []);
 
-  const updateCell = useCallback(
-    (id: string, r: number, c: number, value: string) => {
+  const updateCellInput = useCallback(
+    (id: string, r: number, c: number, raw: string) => {
       setSheets((prev) =>
         prev.map((s) => {
           if (s.id !== id) return s;
-          const rows = s.rows.map((row) => [...row]);
+          const rows = s.rows.map((row) => row.map((cell) => ({ ...cell })));
           while (rows.length <= r) {
             rows.push(
               Array.from(
                 { length: rows[0]?.length ?? 12 },
-                () => "",
+                () => ({ raw: "", display: "" }),
               ),
             );
           }
           const row = [...rows[r]];
-          while (row.length <= c) row.push("");
-          row[c] = value;
-          rows[r] = row;
-          return { ...s, rows, updatedAt: Date.now() };
+          while (row.length <= c) row.push({ raw: "", display: "" });
+          row[c] = { raw, display: raw };
+          const nextRows = [...rows];
+          nextRows[r] = row;
+          return {
+            ...s,
+            rows: evaluateSheetRows(nextRows),
+            updatedAt: Date.now(),
+          };
         }),
       );
     },
     [],
   );
 
+  const replaceSheetGrid = useCallback((id: string, rows: WorkspaceSheetCell[][]) => {
+    setSheets((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s;
+        return {
+          ...s,
+          rows: evaluateSheetRows(rows),
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, []);
+
   const applyAgentSheetUpdate = useCallback(
-    (id: string, rows: string[][], newRevision: number) => {
+    (id: string, rows: WorkspaceSheetCell[][], newRevision: number) => {
       setSheets((prev) =>
         prev.map((s) => {
           if (s.id !== id) return s;
           return {
             ...s,
-            rows,
+            rows: evaluateSheetRows(rows),
             revision: newRevision,
             updatedAt: Date.now(),
           };
@@ -164,6 +187,48 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [],
   );
+
+  const importSheet = useCallback((sheet: WorkspaceSheet) => {
+    setSheets((prev) => [sheet, ...prev]);
+    setSelectionUser(sheet.id);
+  }, []);
+
+  const addSheetRow = useCallback((id: string) => {
+    setSheets((prev) =>
+      prev.map((sheet) => {
+        if (sheet.id !== id) return sheet;
+        const nextRows = [
+          ...sheet.rows.map((row) => row.map((cell) => ({ ...cell }))),
+          Array.from({ length: sheet.rows[0]?.length ?? 12 }, () => ({
+            raw: "",
+            display: "",
+          })),
+        ];
+        return {
+          ...sheet,
+          rows: evaluateSheetRows(nextRows),
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, []);
+
+  const addSheetColumn = useCallback((id: string) => {
+    setSheets((prev) =>
+      prev.map((sheet) => {
+        if (sheet.id !== id) return sheet;
+        const nextRows = sheet.rows.map((row) => [
+          ...row.map((cell) => ({ ...cell })),
+          { raw: "", display: "" },
+        ]);
+        return {
+          ...sheet,
+          rows: evaluateSheetRows(nextRows),
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -174,8 +239,12 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
       createSheet,
       deleteSheet,
       updateSheetTitle,
-      updateCell,
+      updateCellInput,
+      replaceSheetGrid,
       applyAgentSheetUpdate,
+      importSheet,
+      addSheetRow,
+      addSheetColumn,
     }),
     [
       sheets,
@@ -185,8 +254,12 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
       createSheet,
       deleteSheet,
       updateSheetTitle,
-      updateCell,
+      updateCellInput,
+      replaceSheetGrid,
       applyAgentSheetUpdate,
+      importSheet,
+      addSheetRow,
+      addSheetColumn,
     ],
   );
 

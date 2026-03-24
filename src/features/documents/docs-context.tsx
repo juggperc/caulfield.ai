@@ -21,9 +21,13 @@ type DocsContextValue = {
   setSelectedId: (id: string | null) => void;
   selectedDoc: WorkspaceDoc | undefined;
   createDocument: () => void;
+  createDocumentFromImport: (
+    input: Pick<WorkspaceDoc, "title" | "contentJson" | "format">,
+  ) => void;
   deleteDocument: (id: string) => void;
   updateDocumentTitle: (id: string, title: string) => void;
   updateDocumentFromEditor: (id: string, contentJson: JSONContent) => void;
+  replaceDocumentContent: (document: WorkspaceDoc) => void;
   applyAgentDocumentUpdate: (
     id: string,
     contentJson: JSONContent,
@@ -92,6 +96,7 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
     const doc: WorkspaceDoc = {
       id: crypto.randomUUID(),
       title: "Untitled document",
+      format: "rich",
       createdAt: now,
       updatedAt: now,
       revision: 0,
@@ -100,6 +105,28 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
     setDocuments((prev) => [doc, ...prev]);
     setSelectionUser(doc.id);
   }, []);
+
+  const createDocumentFromImport = useCallback(
+    ({
+      title,
+      contentJson,
+      format,
+    }: Pick<WorkspaceDoc, "title" | "contentJson" | "format">) => {
+      const now = Date.now();
+      const doc: WorkspaceDoc = {
+        id: crypto.randomUUID(),
+        title: title.trim() || "Imported document",
+        createdAt: now,
+        updatedAt: now,
+        revision: 0,
+        contentJson,
+        format,
+      };
+      setDocuments((prev) => [doc, ...prev]);
+      setSelectionUser(doc.id);
+    },
+    [],
+  );
 
   const deleteDocument = useCallback((id: string) => {
     setSelectionUser((cur) => (cur === id ? null : cur));
@@ -148,6 +175,14 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
     [],
   );
 
+  const replaceDocumentContent = useCallback((document: WorkspaceDoc) => {
+    setDocuments((prev) => {
+      const rest = prev.filter((entry) => entry.id !== document.id);
+      return [document, ...rest];
+    });
+    setSelectionUser(document.id);
+  }, []);
+
   const value = useMemo(
     () => ({
       documents,
@@ -155,9 +190,11 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
       setSelectedId,
       selectedDoc,
       createDocument,
+      createDocumentFromImport,
       deleteDocument,
       updateDocumentTitle,
       updateDocumentFromEditor,
+      replaceDocumentContent,
       applyAgentDocumentUpdate,
     }),
     [
@@ -166,9 +203,11 @@ export const DocsProvider = ({ children }: { children: React.ReactNode }) => {
       setSelectedId,
       selectedDoc,
       createDocument,
+      createDocumentFromImport,
       deleteDocument,
       updateDocumentTitle,
       updateDocumentFromEditor,
+      replaceDocumentContent,
       applyAgentDocumentUpdate,
     ],
   );

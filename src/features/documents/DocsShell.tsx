@@ -11,8 +11,24 @@ import { useDocsAgentChat } from "@/features/ai-agent/useDocsAgentChat";
 import { applySheetCellsToSheet } from "@/features/documents/client/apply-sheet-cells";
 import type { DocEditsOutput, SheetCellsOutput } from "@/features/documents/file-spec";
 import { MessageFeed } from "@/features/chat-ui/MessageFeed";
+import {
+  buildCsvFromDoc,
+  buildDocxBlobFromWorkspaceDoc,
+  buildWorkspaceDocFromCsvFile,
+  buildWorkspaceDocFromDocxFile,
+} from "@/features/documents/docs-import-export";
 import { motion } from "framer-motion";
-import { ArrowUp, LayoutGrid, Plus, Sparkles, Table, Trash2 } from "lucide-react";
+import {
+  ArrowUp,
+  Download,
+  FileSpreadsheet,
+  FileUp,
+  LayoutGrid,
+  Plus,
+  Sparkles,
+  Table,
+  Trash2,
+} from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import {
   useCallback,
@@ -21,6 +37,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
 } from "react";
 import { applyDocEditsBatchToEditor } from "./client/apply-doc-edits";
 import {
@@ -62,6 +79,7 @@ export const DocsShell = () => {
     updateDocumentTitle,
     updateDocumentFromEditor,
     applyAgentDocumentUpdate,
+    replaceDocumentContent,
   } = useDocs();
 
   const { sheets, applyAgentSheetUpdate } = useSheets();
@@ -80,6 +98,9 @@ export const DocsShell = () => {
   const [frozenSelection, setFrozenSelection] =
     useState<DocsChatSelection | null>(null);
   const [selectionInstruction, setSelectionInstruction] = useState("");
+  const [docImportError, setDocImportError] = useState<string | null>(null);
+  const [docImportBusy, setDocImportBusy] = useState(false);
+  const importDocFileRef = useRef<HTMLInputElement | null>(null);
 
   const handleDocEditsBatchFromAgent = useCallback(
     (payloads: DocEditsOutput[]) => {
@@ -223,6 +244,57 @@ export const DocsShell = () => {
     status === "submitted" ||
     status === "streaming";
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportDocument = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setDocImportError(null);
+    setDocImportBusy(true);
+    try {
+      const imported = file.name.toLowerCase().endsWith(".docx")
+        ? await buildWorkspaceDocFromDocxFile(file)
+        : await buildWorkspaceDocFromCsvFile(file);
+      replaceDocumentContent(imported);
+      setSelectedId(imported.id);
+      setWorkspaceTab("docs");
+    } catch (error) {
+      setDocImportError(
+        error instanceof Error ? error.message : "Could not import that file.",
+      );
+    } finally {
+      setDocImportBusy(false);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    if (!selectedDoc) return;
+    const blob = await buildDocxBlobFromWorkspaceDoc(selectedDoc);
+    downloadBlob(
+      blob,
+      `${(selectedDoc.title || "document").replace(/[^\w.-]+/g, "_")}.docx`,
+    );
+  };
+
+  const handleExportDocCsv = () => {
+    if (!selectedDoc) return;
+    const csv = buildCsvFromDoc(selectedDoc);
+    downloadBlob(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      `${(selectedDoc.title || "document").replace(/[^\w.-]+/g, "_")}.csv`,
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sidebar">
       <header className="flex shrink-0 items-center gap-1 border-b border-border bg-sidebar px-3 py-2">
@@ -243,22 +315,57 @@ export const DocsShell = () => {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {workspaceTab === "docs" ? (
           <>
-        <div className="flex min-h-0 max-h-[min(40vh,280px)] w-full shrink-0 flex-col border-border bg-sidebar max-md:border-b md:max-h-none md:w-[min(100%,260px)] md:border-r">
+        <div className="flex min-h-0 max-h-[min(42vh,320px)] w-full shrink-0 flex-col border-border bg-sidebar max-md:border-b md:max-h-none md:w-[min(100%,280px)] md:border-r">
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
             <span className="text-[13px] font-semibold tracking-tight text-foreground">
               Documents
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="text-muted-foreground hover:bg-accent"
-              onClick={createDocument}
-              aria-label="New document"
-            >
-              <Plus className="size-4" aria-hidden />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:bg-accent"
+                onClick={() => importDocFileRef.current?.click()}
+                aria-label="Import DOCX or CSV"
+              >
+                <FileUp className="size-4" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:bg-accent"
+                onClick={createDocument}
+                aria-label="New document"
+              >
+                <Plus className="size-4" aria-hidden />
+              </Button>
+            </div>
           </div>
+          <input
+            ref={importDocFileRef}
+            type="file"
+            accept=".docx,.csv"
+            className="hidden"
+            onChange={(event) => {
+              void handleImportDocument(event);
+            }}
+          />
+          <div className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+            Import `.docx` or `.csv`, export `.docx` or `.csv`, and use the
+            assistant to edit structured content.
+          </div>
+          {docImportError ? (
+            <div className="border-b border-border px-3 py-2 text-[11px] text-destructive">
+              {docImportError}
+            </div>
+          ) : null}
+          {docImportBusy ? (
+            <div className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+              Importing document…
+            </div>
+          ) : null}
           <ScrollArea className="min-h-0 flex-1">
             <ul className="px-2 py-1.5" role="listbox" aria-label="Documents list">
               {sortedDocuments.length === 0 ? (
@@ -309,7 +416,7 @@ export const DocsShell = () => {
           {selectedDoc ? (
             <>
               <div className="shrink-0 border-b border-border px-4 py-3">
-                <div className="flex items-start gap-2">
+                <div className="flex flex-wrap items-start gap-2">
                   <Input
                     value={selectedDoc.title}
                     onChange={(e) =>
@@ -319,6 +426,28 @@ export const DocsShell = () => {
                     className="h-auto border-0 bg-transparent px-0 text-[22px] font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0"
                     aria-label="Document title"
                   />
+                  <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => void handleExportDocx()}
+                    >
+                      <Download className="size-3.5 opacity-70" aria-hidden />
+                      Export DOCX
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={handleExportDocCsv}
+                    >
+                      <FileSpreadsheet className="size-3.5 opacity-70" aria-hidden />
+                      Export CSV
+                    </Button>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -329,6 +458,10 @@ export const DocsShell = () => {
                   >
                     <Trash2 className="size-4" aria-hidden />
                   </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                  <span>rev {selectedDoc.revision}</span>
+                  <span>Updated {formatListDate(selectedDoc.updatedAt)}</span>
                 </div>
               </div>
               <DocsRichEditor

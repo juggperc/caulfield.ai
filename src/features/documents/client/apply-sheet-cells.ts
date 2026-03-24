@@ -4,16 +4,22 @@ import {
   WORKSPACE_SHEET_COLS,
   WORKSPACE_SHEET_ROWS,
 } from "@/features/documents/limits";
-import type { WorkspaceSheet } from "@/features/documents/sheets-types";
+import { buildEvaluatedSheetGrid } from "@/features/documents/sheet-formulas";
+import type { SheetCell, WorkspaceSheet } from "@/features/documents/sheets-types";
 
-const ensureGrid = (rows: string[][]): string[][] => {
-  const out = rows.map((r) => [...r]);
+const emptyCell = (): SheetCell => ({
+  raw: "",
+  display: "",
+});
+
+const ensureGrid = (rows: SheetCell[][]): SheetCell[][] => {
+  const out = rows.map((r) => r.map((cell) => ({ ...cell })));
   while (out.length < WORKSPACE_SHEET_ROWS) {
-    out.push(Array(WORKSPACE_SHEET_COLS).fill(""));
+    out.push(Array.from({ length: WORKSPACE_SHEET_COLS }, emptyCell));
   }
   return out.slice(0, WORKSPACE_SHEET_ROWS).map((r) => {
     const row = [...r];
-    while (row.length < WORKSPACE_SHEET_COLS) row.push("");
+    while (row.length < WORKSPACE_SHEET_COLS) row.push(emptyCell());
     return row.slice(0, WORKSPACE_SHEET_COLS);
   });
 };
@@ -22,7 +28,7 @@ export const applySheetCellsToSheet = (
   sheet: WorkspaceSheet,
   payload: SheetCellsOutput,
 ):
-  | { ok: true; rows: string[][]; newRevision: number }
+  | { ok: true; rows: SheetCell[][]; newRevision: number }
   | { ok: false; reason: string } => {
   if (payload.sheetId !== sheet.id) {
     return { ok: false, reason: "Sheet id mismatch." };
@@ -50,13 +56,18 @@ export const applySheetCellsToSheet = (
         ? cell.value.slice(0, MAX_CELL_LENGTH)
         : String(cell.value ?? "").slice(0, MAX_CELL_LENGTH);
     const row = [...next[r]];
-    row[c] = val;
+    row[c] = {
+      raw: val,
+      display: val,
+    };
     next[r] = row;
   }
 
+  const evaluated = buildEvaluatedSheetGrid(next);
+
   return {
     ok: true,
-    rows: next,
+    rows: evaluated,
     newRevision: sheet.revision + 1,
   };
 };

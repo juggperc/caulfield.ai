@@ -21,6 +21,13 @@ export const normalizeWorkspaceDoc = (raw: unknown): WorkspaceDoc | null => {
     return {
       id,
       title,
+      format:
+        raw.format === "docx" ||
+        raw.format === "csv" ||
+        raw.format === "md" ||
+        raw.format === "txt"
+          ? raw.format
+          : "rich",
       createdAt,
       updatedAt,
       revision,
@@ -30,6 +37,13 @@ export const normalizeWorkspaceDoc = (raw: unknown): WorkspaceDoc | null => {
   return {
     id,
     title,
+    format:
+      raw.format === "docx" ||
+      raw.format === "csv" ||
+      raw.format === "md" ||
+      raw.format === "txt"
+        ? raw.format
+        : "rich",
     createdAt,
     updatedAt,
     revision,

@@ -3,9 +3,24 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { WORKSPACE_SHEET_COLS, WORKSPACE_SHEET_ROWS } from "@/features/documents/limits";
+import {
+  importCsvFileAsSheet,
+  serializeSheetToCsv,
+} from "@/features/documents/docs-import-export";
+import {
+  WORKSPACE_SHEET_COLS,
+  WORKSPACE_SHEET_ROWS,
+} from "@/features/documents/limits";
 import { motion } from "framer-motion";
-import { Download, Plus, Trash2 } from "lucide-react";
+import {
+  Download,
+  FileUp,
+  Plus,
+  Rows3,
+  Trash2,
+  Columns3,
+} from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { useSheets } from "./sheets-context";
 
 const colLabel = (c: number): string => {
@@ -33,17 +48,21 @@ export const SheetsWorkspace = () => {
     createSheet,
     deleteSheet,
     updateSheetTitle,
-    updateCell,
+    updateCellInput,
+    importSheet,
+    addSheetRow,
+    addSheetColumn,
   } = useSheets();
 
   const sorted = [...sheets].sort((a, b) => b.updatedAt - a.updatedAt);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(
+    null,
+  );
 
   const handleExportCsv = () => {
     if (!selectedSheet) return;
-    const lines = selectedSheet.rows.map((r) =>
-      r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-    );
-    const blob = new Blob([lines.join("\n")], {
+    const blob = new Blob([serializeSheetToCsv(selectedSheet)], {
       type: "text/csv;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
@@ -54,6 +73,21 @@ export const SheetsWorkspace = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleImportCsv = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const imported = await importCsvFileAsSheet(file);
+    importSheet(imported);
+    event.target.value = "";
+  };
+
+  const activeCellValue = useMemo(() => {
+    if (!selectedSheet || !activeCell) return "";
+    return selectedSheet.rows[activeCell.r]?.[activeCell.c]?.raw ?? "";
+  }, [selectedSheet, activeCell]);
 
   const visibleCols = Math.min(WORKSPACE_SHEET_COLS, 16);
   const visibleRows = Math.min(WORKSPACE_SHEET_ROWS, 40);
@@ -132,6 +166,24 @@ export const SheetsWorkspace = () => {
                   aria-label="Sheet title"
                 />
                 <div className="flex shrink-0 gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleImportCsv}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Import CSV into sheet"
+                  >
+                    <FileUp className="size-3.5 opacity-70" aria-hidden />
+                    Import CSV
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -145,6 +197,28 @@ export const SheetsWorkspace = () => {
                   </Button>
                   <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => addSheetRow(selectedSheet.id)}
+                    aria-label="Add row"
+                  >
+                    <Rows3 className="size-3.5 opacity-70" aria-hidden />
+                    Row
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => addSheetColumn(selectedSheet.id)}
+                    aria-label="Add column"
+                  >
+                    <Columns3 className="size-3.5 opacity-70" aria-hidden />
+                    Column
+                  </Button>
+                  <Button
+                    type="button"
                     variant="ghost"
                     size="icon-sm"
                     className="text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
@@ -154,6 +228,26 @@ export const SheetsWorkspace = () => {
                     <Trash2 className="size-4" aria-hidden />
                   </Button>
                 </div>
+              </div>
+              <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2">
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Formula
+                </span>
+                <Input
+                  value={activeCellValue}
+                  onChange={(e) => {
+                    if (!selectedSheet || !activeCell) return;
+                    updateCellInput(
+                      selectedSheet.id,
+                      activeCell.r,
+                      activeCell.c,
+                      e.target.value,
+                    );
+                  }}
+                  placeholder="Select a cell to edit its formula or value"
+                  className="h-9 bg-background"
+                  aria-label="Formula bar"
+                />
               </div>
               <ScrollArea className="min-h-0 flex-1">
                 <div className="p-3">
@@ -181,8 +275,11 @@ export const SheetsWorkspace = () => {
                             {r + 1}
                           </td>
                           {Array.from({ length: visibleCols }, (_, c) => {
-                            const row = selectedSheet.rows[r] ?? [];
-                            const val = row[c] ?? "";
+                            const cell = selectedSheet.rows[r]?.[c];
+                            const value = cell?.raw ?? "";
+                            const displayValue = cell?.display ?? "";
+                            const isActive =
+                              activeCell?.r === r && activeCell?.c === c;
                             return (
                               <td
                                 key={c}
@@ -190,9 +287,10 @@ export const SheetsWorkspace = () => {
                               >
                                 <input
                                   type="text"
-                                  value={val}
+                                  value={value}
+                                  onFocus={() => setActiveCell({ r, c })}
                                   onChange={(e) =>
-                                    updateCell(
+                                    updateCellInput(
                                       selectedSheet.id,
                                       r,
                                       c,
@@ -202,6 +300,11 @@ export const SheetsWorkspace = () => {
                                   className="box-border h-8 w-full min-w-[6.5rem] border-0 bg-transparent px-2 py-1 text-[13px] text-foreground outline-none focus:bg-accent/50 focus:ring-2 focus:ring-inset focus:ring-ring/60"
                                   aria-label={`Cell ${colLabel(c)}${r + 1}`}
                                 />
+                                {!isActive && displayValue && displayValue !== value ? (
+                                  <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center px-2 text-[13px] text-foreground">
+                                    {displayValue}
+                                  </div>
+                                ) : null}
                               </td>
                             );
                           })}
@@ -215,6 +318,11 @@ export const SheetsWorkspace = () => {
                     assistant can update cells via{" "}
                     <code className="rounded bg-muted px-1 font-mono text-[10px]">
                       sheets_apply_cells
+                    </code>
+                    . Formulas support cell refs, ranges, and basics like
+                    {" "}
+                    <code className="rounded bg-muted px-1 font-mono text-[10px]">
+                      =SUM(A1:B3)
                     </code>
                     .
                   </p>
