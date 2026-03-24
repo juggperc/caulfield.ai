@@ -13,6 +13,7 @@ import { createContext7Toolset } from "@/features/integrations/context7-tools";
 import { createExaSearchToolset } from "@/features/integrations/exa-tools";
 import { createGithubToolset } from "@/features/integrations/github-tools";
 import { createNativeSearchToolset } from "@/features/integrations/native-search-tools";
+import { createDeepResearchChatTool } from "@/features/research/deep-research-chat-tool";
 import { createMemoryToolset } from "@/features/ai-agent/memory-tools";
 import { createNotesToolset } from "@/features/ai-agent/notes-tools";
 import type { MemoryEntry } from "@/features/memory/memory-types";
@@ -146,6 +147,8 @@ const ChatBodySchema = z.object({
   ragIncludeMemory: z.boolean().optional().default(true),
   /** When false, research snippets are excluded from unified RAG only. */
   ragIncludeResearch: z.boolean().optional().default(true),
+  /** When true, main chat may call `deep_research` (multi-step cited research). */
+  deepResearchEnabled: z.boolean().optional().default(false),
 });
 
 const truncate = (s: string, max: number) => {
@@ -169,7 +172,7 @@ const ragBehaviorClause = (
 ) => {
   const chunks: string[] = ["**notes**"];
   if (ragIncludeResearch) {
-    chunks.push("**Deep Research** snippets (from the chat research tool)");
+    chunks.push("**Deep Research** snippets (from `deep_research` or your saved snippet library)");
   }
   if (ragIncludeMemory) chunks.push("**memory**");
   const list =
@@ -252,6 +255,7 @@ export async function POST(req: Request) {
     integrationKeys,
     ragIncludeMemory,
     ragIncludeResearch,
+    deepResearchEnabled,
   } = parsed.data;
   if (!rawMessages.length) {
     return new Response(JSON.stringify({ error: "No messages provided" }), {
@@ -355,6 +359,15 @@ export async function POST(req: Request) {
     ? createGithubToolset({ token: githubTok }).tools
     : {};
 
+  const deepResearchTools =
+    !isDocsMode && deepResearchEnabled
+      ? createDeepResearchChatTool({
+          apiKey,
+          userId,
+          quotaEnforced,
+        })
+      : {};
+
   const tools = isDocsMode
     ? {
         ...docsEditorTools,
@@ -368,6 +381,7 @@ export async function POST(req: Request) {
         ...memoryTools,
         ...docCreationTools,
         ...workspaceReadToolset,
+        ...deepResearchTools,
         ...nativeTools,
         ...githubTools,
         ...context7Tools,
@@ -394,6 +408,20 @@ export async function POST(req: Request) {
 ## Document files (chat mode)
 When the user asks for an Excel spreadsheet, a Word document, or a CSV/Markdown/text file, call the appropriate tool (\`create_spreadsheet\`, \`create_word_document\`, \`create_text_document\`). The UI builds the file in the browser for download. Do not paste huge tables or base64 in the message text; use tools and briefly summarize.`;
 
+  const deepResearchHarnessOff =
+    !isDocsMode && !deepResearchEnabled
+      ? `## Deep research (disabled for this session)
+The \`deep_research\` tool is **off**. For multi-source cited digests, the user can enable **Research** (microscope) in the chat bar, then ask again. You still have notes, memory, quick web tools (when enabled), and workspace context.`
+      : "";
+
+  const deepResearchHarnessOn =
+    !isDocsMode && deepResearchEnabled
+      ? `## Deep research (enabled)
+You have \`deep_research\`: a **multi-step** pass over Wikipedia, arXiv, and the public web that saves **cited snippets** into the workspace and returns a concise synthesis. Use it when the user wants a **substantive, sourced** overview—not for trivial lookups (\`native_web_lookup\` / \`exa_search\` are enough there). After the tool returns, weave the synthesis into your reply; full snippets are available for RAG.
+
+For **long-term** recall across chats, use \`memory_create\` only when the user asks to remember something or a short durable fact clearly merits it—avoid dumping whole research dumps into memory.`
+      : "";
+
   const webHarnessOff = !webToolsAvailable
     ? `## Live web lookup (disabled for this session)
 No live web search tools are available. If the user asks for **breaking news**, **search the web**, or other **fresh public** facts, tell them to toggle **Web search on** using the globe button in the chat bar, then retry. You still have notes, memory, workspace, docs/sheets context, and file-creation tools.`
@@ -417,12 +445,16 @@ When the user asks for breaking news, to **search the web**, or other **live / f
 
 Behavior:
 - Use \`notes_*\` tools to list, read, search, create, update, or delete notes whenever it helps.
-- Use \`memory_*\` tools to persist durable facts, preferences, or summaries the user (or you) would want recalled later; prefer \`memory_create\` when the user explicitly asks to remember something important.
+- Use \`memory_*\` for **durable** facts worth recalling in future chats; call \`memory_create\` when the user asks to remember something or when a compact takeaway clearly should persist—skip stuffing large research payloads unless they ask.
 - After mutating notes or memory, briefly confirm what changed (titles and ids when useful).
 - Prefer \`notes_list\`, \`notes_search\`, \`notes_read\`, \`memory_list\`, \`memory_search\`, or \`memory_read\` instead of guessing when the user refers to stored content.
 ${ragBehaviorLine}
 
 ${docCreationInstructions}
+
+${deepResearchHarnessOff}
+
+${deepResearchHarnessOn}
 
 ${webHarnessOff}
 

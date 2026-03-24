@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Globe, Paperclip, Square, Trash2 } from "lucide-react";
+import { Globe, Microscope, Paperclip, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ToolPaletteProps = {
@@ -14,6 +14,8 @@ type ToolPaletteProps = {
   readonly attachTitle: string;
   readonly webSearchEnabled: boolean;
   readonly onToggleWebSearch: () => void;
+  readonly deepResearchEnabled: boolean;
+  readonly onToggleDeepResearch: () => void;
 };
 
 export const ToolPalette = ({
@@ -26,6 +28,8 @@ export const ToolPalette = ({
   attachTitle,
   webSearchEnabled,
   onToggleWebSearch,
+  deepResearchEnabled,
+  onToggleDeepResearch,
 }: ToolPaletteProps) => {
   return (
     <div className="flex items-center gap-1 border-t border-border/80 px-2 py-1.5">
@@ -51,6 +55,31 @@ export const ToolPalette = ({
           >
             <Globe className="size-3.5" aria-hidden />
           </motion.span>
+        </Button>
+      </motion.div>
+
+      <motion.div whileHover={{ opacity: 0.85 }} whileTap={{ scale: 0.97 }}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className={
+            deepResearchEnabled ? "text-primary" : "text-muted-foreground"
+          }
+          aria-label={
+            deepResearchEnabled
+              ? "Deep research tool on"
+              : "Deep research tool off"
+          }
+          aria-pressed={deepResearchEnabled}
+          title={
+            deepResearchEnabled
+              ? "Deep research on — assistant can run multi-source research"
+              : "Deep research off"
+          }
+          onClick={onToggleDeepResearch}
+        >
+          <Microscope className="size-3.5" aria-hidden />
         </Button>
       </motion.div>
 

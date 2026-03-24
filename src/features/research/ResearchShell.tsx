@@ -85,7 +85,7 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
         embedded ? "min-h-0" : "min-h-0 flex-1",
       )}
     >
-      {embedded ? null : <WorkspacePanelHeader title="Deep Research" />}
+      {embedded ? null : <WorkspacePanelHeader title="Research snippets" />}
 
       <div
         className={cn(
@@ -95,45 +95,64 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
             : "min-h-0 flex-1 overflow-y-auto overscroll-contain",
         )}
       >
-        <p className="text-sm text-muted-foreground">
-          Wikipedia, arXiv, and web sources. Snippets feed chat context with notes
-          and memory.
-        </p>
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="research-topic"
-            className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-          >
-            Topic
-          </label>
-          <textarea
-            id="research-topic"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={3}
-            placeholder="e.g. Differentiable rendering for neural fields — recent methods and limitations"
-            className="min-h-[88px] resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Research topic"
-            disabled={busy}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleRun()}
-              disabled={busy || !topic.trim()}
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : null}
-              {busy ? "Researching…" : "Run research"}
-            </button>
-            <span className="text-xs text-muted-foreground">
-              Ctrl+Enter to run
-            </span>
-          </div>
+        <div className="rounded-lg border border-border bg-card/60 p-3 text-sm text-card-foreground">
+          <p className="font-medium text-foreground">Use research from chat</p>
+          <p className="mt-1 text-muted-foreground">
+            Turn on the <strong className="text-foreground">microscope</strong>{" "}
+            in the chat toolbar, then ask your question—the assistant can run{" "}
+            <strong className="text-foreground">deep research</strong> for this
+            chat and save cited snippets here. Use{" "}
+            <strong className="text-foreground">memory</strong> in the same
+            toolbar when you want facts kept across future chats.
+          </p>
         </div>
+
+        <details className="rounded-lg border border-border/80 bg-background/40 text-sm">
+          <summary className="cursor-pointer select-none px-3 py-2 font-medium text-foreground">
+            Standalone research (optional)
+          </summary>
+          <div className="border-t border-border/60 px-3 py-3">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Run the research agent without a chat message (same quota as chat
+              research).
+            </p>
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="research-topic"
+                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Topic
+              </label>
+              <textarea
+                id="research-topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={3}
+                placeholder="e.g. Recent work on retrieval-augmented generation"
+                className="min-h-[88px] resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Research topic"
+                disabled={busy}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleRun()}
+                  disabled={busy || !topic.trim()}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : null}
+                  {busy ? "Researching…" : "Run research"}
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  Ctrl+Enter to run
+                </span>
+              </div>
+            </div>
+          </div>
+        </details>
 
         {error ? (
           <div
@@ -173,8 +192,9 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
 
         {snippets.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No snippets yet. Run a topic to populate this list; they feed chat
-            RAG alongside Notes and Memory.
+            No snippets yet. Enable research in chat and ask a question, or use
+            standalone research above. Snippets feed chat RAG with notes and
+            memory when Research in RAG is on.
           </p>
         ) : (
           <ul className="flex flex-col gap-3" aria-label="Research snippets">

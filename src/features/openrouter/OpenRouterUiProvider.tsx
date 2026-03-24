@@ -18,13 +18,19 @@ const CHAT_MODE_LABEL_FREE = "Free";
 
 export type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 
+export type KnowledgeTab = "snippets" | "memory";
+
 type OpenRouterUiContextValue = {
   readonly openWorkspacePalette: () => void;
   readonly getChatModeShortLabel: () => string;
   readonly selectionEpoch: number;
-  readonly researchDialogOpen: boolean;
+  readonly knowledgeOpen: boolean;
+  readonly setKnowledgeOpen: (open: boolean) => void;
+  readonly knowledgeTab: KnowledgeTab;
+  readonly setKnowledgeTab: (tab: KnowledgeTab) => void;
+  readonly openKnowledgeSnippets: () => void;
+  readonly openKnowledgeMemory: () => void;
   readonly setResearchDialogOpen: (open: boolean) => void;
-  readonly memoryDialogOpen: boolean;
   readonly setMemoryDialogOpen: (open: boolean) => void;
   readonly chatModels: ChatModelsUiConfig;
 };
@@ -41,8 +47,8 @@ export const useOpenRouterUi = (): OpenRouterUiContextValue => {
 
 export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNode }) => {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [researchDialogOpen, setResearchDialogOpen] = useState(false);
-  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [knowledgeTab, setKnowledgeTab] = useState<KnowledgeTab>("snippets");
   const [selectionEpoch, setSelectionEpoch] = useState(0);
   const [chatModels] = useState<ChatModelsUiConfig>({
     thinkingLabel: CHAT_MODE_LABEL_THINKING,
@@ -56,6 +62,26 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
 
   const onWorkspaceUpdated = useCallback(() => {
     setSelectionEpoch((n) => n + 1);
+  }, []);
+
+  const openKnowledgeSnippets = useCallback(() => {
+    setKnowledgeTab("snippets");
+    setKnowledgeOpen(true);
+  }, []);
+
+  const openKnowledgeMemory = useCallback(() => {
+    setKnowledgeTab("memory");
+    setKnowledgeOpen(true);
+  }, []);
+
+  const setResearchDialogOpen = useCallback((open: boolean) => {
+    if (open) setKnowledgeTab("snippets");
+    setKnowledgeOpen(open);
+  }, []);
+
+  const setMemoryDialogOpen = useCallback((open: boolean) => {
+    if (open) setKnowledgeTab("memory");
+    setKnowledgeOpen(open);
   }, []);
 
   const getChatModeShortLabel = useCallback((): string => {
@@ -82,9 +108,13 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
       openWorkspacePalette,
       getChatModeShortLabel,
       selectionEpoch,
-      researchDialogOpen,
+      knowledgeOpen,
+      setKnowledgeOpen,
+      knowledgeTab,
+      setKnowledgeTab,
+      openKnowledgeSnippets,
+      openKnowledgeMemory,
       setResearchDialogOpen,
-      memoryDialogOpen,
       setMemoryDialogOpen,
       chatModels,
     }),
@@ -92,8 +122,12 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
       openWorkspacePalette,
       getChatModeShortLabel,
       selectionEpoch,
-      researchDialogOpen,
-      memoryDialogOpen,
+      knowledgeOpen,
+      knowledgeTab,
+      openKnowledgeSnippets,
+      openKnowledgeMemory,
+      setResearchDialogOpen,
+      setMemoryDialogOpen,
       chatModels,
     ],
   );
@@ -105,8 +139,8 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         onWorkspaceUpdated={onWorkspaceUpdated}
-        onOpenResearch={() => setResearchDialogOpen(true)}
-        onOpenMemory={() => setMemoryDialogOpen(true)}
+        onOpenResearch={openKnowledgeSnippets}
+        onOpenMemory={openKnowledgeMemory}
         chatModels={chatModels}
       />
     </OpenRouterUiContext.Provider>

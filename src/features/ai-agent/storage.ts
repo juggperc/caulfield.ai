@@ -157,3 +157,24 @@ export const writeChatRagResearchEnabled = (enabled: boolean): void => {
     /* quota */
   }
 };
+
+const CHAT_DEEP_RESEARCH_KEY = "caulfield.chat.deepResearch.enabled";
+
+/** Default off — user enables the `deep_research` tool from the chat bar. */
+export const readDeepResearchEnabled = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(CHAT_DEEP_RESEARCH_KEY) === "1";
+};
+
+export const writeDeepResearchEnabled = (enabled: boolean): void => {
+  if (typeof window === "undefined") return;
+  try {
+    if (enabled) {
+      localStorage.setItem(CHAT_DEEP_RESEARCH_KEY, "1");
+    } else {
+      localStorage.removeItem(CHAT_DEEP_RESEARCH_KEY);
+    }
+  } catch {
+    /* quota */
+  }
+};

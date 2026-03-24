@@ -6,6 +6,7 @@ import { getMemorySnapshot } from "@/features/memory/memory-chat-bridge";
 import type { MemoryEntry } from "@/features/memory/memory-types";
 import { getNotesSnapshot } from "@/features/notes/notes-api-bridge";
 import type { Note } from "@/features/notes/types";
+import type { ResearchSnippet } from "@/features/research/research-types";
 import { getResearchSnapshot } from "@/features/research/research-chat-bridge";
 import {
   saveConversationMessages,
@@ -19,12 +20,14 @@ import {
   readChatMode,
   readChatRagMemoryEnabled,
   readChatRagResearchEnabled,
+  readDeepResearchEnabled,
   readIntegrationKeysForChatBody,
 } from "./storage";
 
 type UseChatWithOpenRouterOptions = {
   readonly onNotesSyncedFromAgent?: (notes: Note[]) => void;
   readonly onMemorySyncedFromAgent?: (memory: MemoryEntry[]) => void;
+  readonly onResearchSyncedFromAgent?: (snippets: ResearchSnippet[]) => void;
   readonly serverConversationId?: string | null;
   readonly persistServerHistory?: boolean;
   readonly localConversationId?: string | null;
@@ -82,6 +85,7 @@ export const useChatWithOpenRouter = (
             memory,
             ragIncludeMemory: readChatRagMemoryEnabled(),
             ragIncludeResearch: readChatRagResearchEnabled(),
+            deepResearchEnabled: readDeepResearchEnabled(),
             integrationKeys: readIntegrationKeysForChatBody(),
             workspaceDocuments,
             workspaceSheets: workspaceSheets.slice(0, MAX_WORKSPACE_SHEETS_IN_REQUEST),
@@ -107,12 +111,26 @@ export const useChatWithOpenRouter = (
         for (const part of message.parts) {
           if (!isToolUIPart(part)) continue;
           if (part.state !== "output-available") continue;
-          const out = part.output as { notes?: Note[]; memory?: MemoryEntry[] };
+          const out = part.output as {
+            notes?: Note[];
+            memory?: MemoryEntry[];
+            ok?: boolean;
+            snippets?: ResearchSnippet[];
+          };
           if (out?.notes && Array.isArray(out.notes)) {
             latestNotes = out.notes;
           }
           if (out?.memory && Array.isArray(out.memory)) {
             latestMemory = out.memory;
+          }
+          if (
+            part.type === "tool-deep_research" &&
+            out?.ok === true &&
+            out.snippets &&
+            Array.isArray(out.snippets) &&
+            out.snippets.length > 0
+          ) {
+            options?.onResearchSyncedFromAgent?.(out.snippets);
           }
         }
         if (latestNotes) {

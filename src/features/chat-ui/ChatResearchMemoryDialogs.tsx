@@ -1,6 +1,6 @@
 "use client";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogBody,
@@ -18,10 +18,12 @@ import { Brain, Microscope } from "lucide-react";
 
 export const ChatResearchMemoryDialogs = () => {
   const {
-    researchDialogOpen,
-    setResearchDialogOpen,
-    memoryDialogOpen,
-    setMemoryDialogOpen,
+    knowledgeOpen,
+    setKnowledgeOpen,
+    knowledgeTab,
+    setKnowledgeTab,
+    openKnowledgeSnippets,
+    openKnowledgeMemory,
   } = useOpenRouterUi();
 
   return (
@@ -37,8 +39,8 @@ export const ChatResearchMemoryDialogs = () => {
             buttonVariants({ variant: "ghost", size: "icon-sm" }),
             "text-muted-foreground",
           )}
-          aria-label="Open Deep Research"
-          onClick={() => setResearchDialogOpen(true)}
+          aria-label="Open research snippets"
+          onClick={openKnowledgeSnippets}
         >
           <Microscope className="size-4" aria-hidden />
         </button>
@@ -54,37 +56,60 @@ export const ChatResearchMemoryDialogs = () => {
             buttonVariants({ variant: "ghost", size: "icon-sm" }),
             "text-muted-foreground",
           )}
-          aria-label="Open Memory"
-          onClick={() => setMemoryDialogOpen(true)}
+          aria-label="Open memory"
+          onClick={openKnowledgeMemory}
         >
           <Brain className="size-4" aria-hidden />
         </button>
       </motion.div>
 
-      <Dialog open={researchDialogOpen} onOpenChange={setResearchDialogOpen}>
-        <DialogContent showClose className="max-h-[min(90vh,720px)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      <Dialog open={knowledgeOpen} onOpenChange={setKnowledgeOpen}>
+        <DialogContent
+          showClose
+          className="max-h-[min(90vh,720px)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        >
           <DialogHeader className="border-b border-border px-4 py-3 pr-12">
-            <DialogTitle>Deep Research</DialogTitle>
+            <DialogTitle>Knowledge</DialogTitle>
             <DialogDescription className="sr-only">
-              Research agent and snippets
+              Research snippets and saved memory
             </DialogDescription>
           </DialogHeader>
+          <div
+            className="flex shrink-0 gap-1 border-b border-border px-3 py-2"
+            role="tablist"
+            aria-label="Knowledge sections"
+          >
+            <Button
+              type="button"
+              variant={knowledgeTab === "snippets" ? "secondary" : "ghost"}
+              size="sm"
+              className="gap-1.5"
+              role="tab"
+              aria-selected={knowledgeTab === "snippets"}
+              onClick={() => setKnowledgeTab("snippets")}
+            >
+              <Microscope className="size-3.5" aria-hidden />
+              Research
+            </Button>
+            <Button
+              type="button"
+              variant={knowledgeTab === "memory" ? "secondary" : "ghost"}
+              size="sm"
+              className="gap-1.5"
+              role="tab"
+              aria-selected={knowledgeTab === "memory"}
+              onClick={() => setKnowledgeTab("memory")}
+            >
+              <Brain className="size-3.5" aria-hidden />
+              Memory
+            </Button>
+          </div>
           <DialogBody className="max-h-[min(78vh,640px)] overflow-y-auto bg-muted p-0">
-            <ResearchShell embedded />
-          </DialogBody>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={memoryDialogOpen} onOpenChange={setMemoryDialogOpen}>
-        <DialogContent showClose className="max-h-[min(90vh,720px)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
-          <DialogHeader className="border-b border-border px-4 py-3 pr-12">
-            <DialogTitle>Memory</DialogTitle>
-            <DialogDescription className="sr-only">
-              Saved memory entries
-            </DialogDescription>
-          </DialogHeader>
-          <DialogBody className="max-h-[min(78vh,640px)] overflow-y-auto bg-muted p-0">
-            <MemoryShell embedded />
+            {knowledgeTab === "snippets" ? (
+              <ResearchShell embedded />
+            ) : (
+              <MemoryShell embedded />
+            )}
           </DialogBody>
         </DialogContent>
       </Dialog>

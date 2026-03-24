@@ -7,9 +7,15 @@ import {
   writeLastServerConversationId,
 } from "@/features/auth/storage-scope";
 import { useChatWithOpenRouter } from "@/features/ai-agent/useChatWithOpenRouter";
-import { setWebSearchOverride } from "@/features/ai-agent/storage";
+import {
+  readDeepResearchEnabled,
+  setWebSearchOverride,
+  writeDeepResearchEnabled,
+} from "@/features/ai-agent/storage";
 import type { MemoryEntry } from "@/features/memory/memory-types";
 import { useMemory } from "@/features/memory/memory-provider";
+import { useResearch } from "@/features/research/research-provider";
+import type { ResearchSnippet } from "@/features/research/research-types";
 import { useNotes } from "@/features/notes/notes-context";
 import type { Note } from "@/features/notes/types";
 import type { UIMessage } from "ai";
@@ -57,6 +63,13 @@ export const ChatShell = () => {
   const { user, status } = useSession();
   const { syncNotesFromAgent } = useNotes();
   const { replaceAll: syncMemoryFromAgent } = useMemory();
+  const { addSnippets } = useResearch();
+  const syncResearchFromAgent = useCallback(
+    (snippets: ResearchSnippet[]) => {
+      addSnippets(snippets);
+    },
+    [addSnippets],
+  );
   const [cfg, setCfg] = useState<PublicConfig | null>(null);
   const [convId, setConvId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
@@ -409,6 +422,7 @@ export const ChatShell = () => {
       newChatError={newChatError}
       syncNotesFromAgent={syncNotesFromAgent}
       syncMemoryFromAgent={syncMemoryFromAgent}
+      syncResearchFromAgent={syncResearchFromAgent}
     />
   );
 };
@@ -423,6 +437,7 @@ type InnerProps = {
   readonly newChatError: string | null;
   readonly syncNotesFromAgent: (notes: Note[]) => void;
   readonly syncMemoryFromAgent: (m: MemoryEntry[]) => void;
+  readonly syncResearchFromAgent: (snippets: ResearchSnippet[]) => void;
 };
 
 const ChatShellInner = ({
@@ -435,8 +450,12 @@ const ChatShellInner = ({
   newChatError,
   syncNotesFromAgent,
   syncMemoryFromAgent,
+  syncResearchFromAgent,
 }: InnerProps) => {
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [deepResearchEnabled, setDeepResearchEnabled] = useState(() =>
+    typeof window !== "undefined" ? readDeepResearchEnabled() : false,
+  );
 
   useEffect(() => {
     setWebSearchOverride(webSearchEnabled);
@@ -459,10 +478,19 @@ const ChatShellInner = ({
     [],
   );
 
+  const handleToggleDeepResearch = useCallback(() => {
+    setDeepResearchEnabled((prev) => {
+      const next = !prev;
+      writeDeepResearchEnabled(next);
+      return next;
+    });
+  }, []);
+
   const { messages, sendMessage, status, stop, setMessages, error, clearError } =
     useChatWithOpenRouter({
       onNotesSyncedFromAgent: syncNotesFromAgent,
       onMemorySyncedFromAgent: syncMemoryFromAgent,
+      onResearchSyncedFromAgent: syncResearchFromAgent,
       serverConversationId: persistServerHistory ? convId : null,
       persistServerHistory,
       localConversationId: persistLocalHistory ? convId : null,
@@ -555,6 +583,8 @@ const ChatShellInner = ({
         disableClear={messages.length === 0}
         webSearchEnabled={webSearchEnabled}
         onToggleWebSearch={handleToggleWebSearch}
+        deepResearchEnabled={deepResearchEnabled}
+        onToggleDeepResearch={handleToggleDeepResearch}
       />
     </div>
   );

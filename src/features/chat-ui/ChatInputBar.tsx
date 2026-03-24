@@ -35,6 +35,8 @@ type ChatInputBarProps = {
   readonly disableClear: boolean;
   readonly webSearchEnabled: boolean;
   readonly onToggleWebSearch: () => void;
+  readonly deepResearchEnabled: boolean;
+  readonly onToggleDeepResearch: () => void;
 };
 
 export const ChatInputBar = ({
@@ -45,6 +47,8 @@ export const ChatInputBar = ({
   disableClear,
   webSearchEnabled,
   onToggleWebSearch,
+  deepResearchEnabled,
+  onToggleDeepResearch,
 }: ChatInputBarProps) => {
   const initialInput = useMemo(() => {
     const pending = peekPendingChatInput();
@@ -175,6 +179,8 @@ export const ChatInputBar = ({
           attachTitle={attachTitle}
           webSearchEnabled={webSearchEnabled}
           onToggleWebSearch={onToggleWebSearch}
+          deepResearchEnabled={deepResearchEnabled}
+          onToggleDeepResearch={onToggleDeepResearch}
         />
         {filesActive && pendingFiles.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 border-t border-border/60 px-2 py-2">

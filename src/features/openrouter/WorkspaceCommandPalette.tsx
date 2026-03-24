@@ -223,15 +223,15 @@ export const WorkspaceCommandPalette = ({
               <CommandSeparator />
               <CommandGroup heading="Open">
                 <CommandItem
-                  value="deep research panel"
+                  value="research snippets knowledge panel"
                   onSelect={handleOpenResearch}
                   className="gap-2"
                 >
                   <Microscope className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground">Deep Research</div>
+                    <div className="font-medium text-foreground">Research snippets</div>
                     <div className="text-[11px] text-muted-foreground">
-                      Run agent · {chatModels.thinkingLabel}
+                      Cited sources · Knowledge library
                     </div>
                   </div>
                 </CommandItem>
