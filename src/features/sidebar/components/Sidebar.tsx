@@ -2,6 +2,14 @@
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/features/auth/session-context";
 import type { AppPanel } from "@/features/shell/panel";
@@ -17,9 +25,11 @@ import {
   Store,
   Plus,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Logo } from "./Logo";
+import { UserAvatarGlow } from "./UserAvatarGlow";
 
 const SIDEBAR_WIDTH = "18rem";
 
@@ -37,6 +47,8 @@ type QuotaJson = {
   subscribed: boolean;
 };
 
+type PendingDelete = { id: string; title: string };
+
 export const Sidebar = ({
   activePanel,
   onPanelChange,
@@ -45,11 +57,15 @@ export const Sidebar = ({
 }: SidebarProps) => {
   const { user, status, signIn, signOut } = useSession();
   const [quota, setQuota] = useState<QuotaJson | null>(null);
-  const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
+  const [conversations, setConversations] = useState<
+    { id: string; title: string }[]
+  >([]);
   const [dbConfigured, setDbConfigured] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     null,
   );
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => {
     void fetch("/api/config")
@@ -109,6 +125,34 @@ export const Sidebar = ({
   }, [user?.id]);
 
   const displayQuota = user?.id ? quota : null;
+  const displayName = user
+    ? (user.name ?? user.email ?? user.id)
+    : "";
+
+  const handleConfirmDeleteChat = useCallback(async () => {
+    if (!pendingDelete) return;
+    const removedId = pendingDelete.id;
+    setDeleteBusy(true);
+    try {
+      const res = await fetch(`/api/conversations/${removedId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        return;
+      }
+      setPendingDelete(null);
+      window.dispatchEvent(new CustomEvent("caulfield:conversations-changed"));
+      window.dispatchEvent(
+        new CustomEvent("caulfield:conversation-deleted", {
+          detail: { id: removedId },
+        }),
+      );
+      void loadConversations();
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [pendingDelete, loadConversations]);
 
   return (
     <aside
@@ -122,6 +166,44 @@ export const Sidebar = ({
       )}
       style={{ width: SIDEBAR_WIDTH }}
     >
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-sm" showClose>
+          <DialogHeader>
+            <DialogTitle>Delete this chat?</DialogTitle>
+            <DialogDescription>
+              {pendingDelete
+                ? `“${pendingDelete.title || "New chat"}” will be removed permanently. This cannot be undone.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="sm:w-auto"
+              onClick={() => setPendingDelete(null)}
+              disabled={deleteBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="sm:w-auto"
+              disabled={deleteBusy}
+              onClick={() => void handleConfirmDeleteChat()}
+            >
+              {deleteBusy ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
       <Logo />
       <nav
         id="workspace-sidebar-nav"
@@ -150,14 +232,13 @@ export const Sidebar = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Dispatch custom event that ChatShell could optionally listen to 
-                  // or let ChatShell manage new chats (we'll just reset URL/state eventually)
                   window.dispatchEvent(new CustomEvent("caulfield:new-chat"));
                 }}
-                className="rounded hover:bg-sidebar/50 p-0.5"
+                className="rounded p-0.5 hover:bg-sidebar/50"
                 title="New chat"
+                aria-label="New chat"
               >
-                <Plus className="size-3.5 opacity-70" />
+                <Plus className="size-3.5 opacity-70" aria-hidden />
               </button>
             ) : null}
           </div>
@@ -168,34 +249,55 @@ export const Sidebar = ({
               {conversations.slice(0, 10).map((c) => {
                 const active = c.id === activeConversationId;
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    type="button"
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors truncate",
-                      active
-                        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      "group flex items-stretch gap-0.5 rounded-md",
+                      active ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/80",
                     )}
-                    title={c.title}
-                    aria-current={active ? "true" : undefined}
-                    onClick={() => {
-                      window.dispatchEvent(
-                        new CustomEvent("caulfield:load-chat", {
-                          detail: { id: c.id },
-                        }),
-                      );
-                    }}
                   >
-                    <MessageCircle
+                    <button
+                      type="button"
                       className={cn(
-                        "size-3 shrink-0",
-                        active ? "opacity-80" : "opacity-50",
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+                        active
+                          ? "font-medium text-sidebar-foreground"
+                          : "text-muted-foreground hover:text-sidebar-foreground",
                       )}
-                      aria-hidden
-                    />
-                    <span className="truncate">{c.title || "New chat"}</span>
-                  </button>
+                      title={c.title}
+                      aria-current={active ? "true" : undefined}
+                      onClick={() => {
+                        window.dispatchEvent(
+                          new CustomEvent("caulfield:load-chat", {
+                            detail: { id: c.id },
+                          }),
+                        );
+                      }}
+                    >
+                      <MessageCircle
+                        className={cn(
+                          "size-3 shrink-0",
+                          active ? "opacity-80" : "opacity-50",
+                        )}
+                        aria-hidden
+                      />
+                      <span className="truncate">{c.title || "New chat"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex shrink-0 items-center rounded-md px-1.5 text-muted-foreground opacity-70 hover:bg-sidebar/60 hover:text-destructive hover:opacity-100"
+                      aria-label={`Delete chat ${c.title || "New chat"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDelete({
+                          id: c.id,
+                          title: c.title || "New chat",
+                        });
+                      }}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -270,43 +372,33 @@ export const Sidebar = ({
           Marketplace
         </motion.button>
       </nav>
-      <div className="mt-auto shrink-0 space-y-3 border-t border-sidebar-border p-3">
-        <div>
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+
+      <div className="mt-auto shrink-0 space-y-2 border-t border-sidebar-border p-3">
+        <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
+          <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Account
           </p>
-          <motion.button
-            type="button"
-            className={
-              activePanel === "settings"
-                ? "mb-4 flex w-full items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left text-sm font-medium text-sidebar-foreground"
-                : "mb-4 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            }
-            whileHover={{ x: 2 }}
-            whileTap={{ scale: 0.99 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            aria-current={activePanel === "settings" ? "page" : undefined}
-            onClick={() => onPanelChange("settings")}
-          >
-            <Settings className="size-4 shrink-0 opacity-70" aria-hidden />
-            Settings
-          </motion.button>
           {status === "loading" ? (
             <p className="text-xs text-muted-foreground">Loading…</p>
           ) : user ? (
-            <div className="flex flex-col gap-2">
-              <p className="truncate text-xs text-foreground">
-                {user.name ?? user.email ?? user.id}
-              </p>
-              {displayQuota ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {displayQuota.unlimited
-                    ? "Unlimited queries"
-                    : displayQuota.subscribed
-                      ? `${displayQuota.paidRemaining} queries left this period`
-                      : `${displayQuota.freeRemaining} free queries left`}
-                </p>
-              ) : null}
+            <>
+              <div className="flex items-start gap-3">
+                <UserAvatarGlow userId={user.id} label={displayName} />
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {displayName}
+                  </p>
+                  {displayQuota ? (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {displayQuota.unlimited
+                        ? "Unlimited queries"
+                        : displayQuota.subscribed
+                          ? `${displayQuota.paidRemaining} queries left this period`
+                          : `${displayQuota.freeRemaining} free queries left`}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
               {!displayQuota?.unlimited &&
               !displayQuota?.subscribed &&
               displayQuota &&
@@ -315,26 +407,39 @@ export const Sidebar = ({
                   href="/api/billing/checkout"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
-                    "inline-flex w-full justify-center",
+                    "mt-3 inline-flex w-full justify-center",
                   )}
                 >
                   Subscribe
                 </a>
               ) : null}
-              <Button
+              <div className="my-3 border-t border-border/60" />
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-2 text-muted-foreground"
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
+                  activePanel === "settings"
+                    ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+                    : "text-foreground hover:bg-sidebar-accent/70",
+                )}
+                aria-current={activePanel === "settings" ? "page" : undefined}
+                onClick={() => onPanelChange("settings")}
+              >
+                <Settings className="size-4 shrink-0 opacity-70" aria-hidden />
+                Settings
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-sidebar-accent/70"
                 onClick={() => {
                   onRequestClose();
                   void signOut();
                 }}
               >
-                <LogOut className="size-4" aria-hidden />
+                <LogOut className="size-4 shrink-0 opacity-70" aria-hidden />
                 Sign out
-              </Button>
-            </div>
+              </button>
+            </>
           ) : (
             <Button
               type="button"
@@ -351,11 +456,12 @@ export const Sidebar = ({
             </Button>
           )}
         </div>
-        <div>
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+
+        <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
+          <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Appearance
           </p>
-          <ThemeToggle />
+          <ThemeToggle variant="segmented" />
         </div>
       </div>
     </aside>

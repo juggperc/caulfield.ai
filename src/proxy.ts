@@ -40,9 +40,12 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith("/api/chat") || pathname.startsWith("/api/research")) {
     // Identify by IP as a basic defense mechanism
     // Note: NextRequest.ip is available in Vercel, but often untyped or missing in local node standard requests
+    const forwarded = request.headers.get("x-forwarded-for");
+    const firstForwarded = forwarded?.split(",")[0]?.trim();
+    const reqWithIp = request as { ip?: string };
     const ip =
-      (request as any).ip ??
-      request.headers.get("x-forwarded-for") ??
+      (typeof reqWithIp.ip === "string" ? reqWithIp.ip : null) ??
+      firstForwarded ??
       request.headers.get("x-real-ip") ??
       "127.0.0.1";
     

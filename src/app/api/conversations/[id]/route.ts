@@ -61,3 +61,21 @@ export const PATCH = async (req: Request, ctx: RouteCtx) => {
   }
   return NextResponse.json(updated);
 };
+
+export const DELETE = async (_req: Request, ctx: RouteCtx) => {
+  const session = await auth();
+  const { id } = await ctx.params;
+  if (!db || !session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const removed = await db
+    .delete(conversations)
+    .where(
+      and(eq(conversations.id, id), eq(conversations.userId, session.user.id)),
+    )
+    .returning({ id: conversations.id });
+  if (removed.length === 0) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return new NextResponse(null, { status: 204 });
+};

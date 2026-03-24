@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { getLibraryBlob } from "@/features/library/library-store";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
-import { Download, FileUp, Trash2 } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { useRef } from "react";
 import { useLibrary } from "./library-context";
+import { LibraryItemCard } from "./LibraryItemCard";
 
 const formatRelative = (ts: number) => {
   const d = new Date(ts);
@@ -88,48 +89,13 @@ export const LibraryShell = () => {
             aria-label="Library items"
           >
             {items.map((item) => (
-              <li
+              <LibraryItemCard
                 key={item.id}
-                className="flex flex-col rounded-lg border border-border bg-card p-3 shadow-sm"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {item.filename}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    <span className="rounded bg-muted px-1.5 py-px capitalize">
-                      {item.source === "workspace"
-                        ? "Workspace"
-                        : item.source}
-                    </span>
-                    <span className="mx-1.5">·</span>
-                    {formatRelative(item.updatedAt)}
-                  </p>
-                </div>
-                <div className="mt-3 flex gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleDownload(item.id, item.filename)}
-                    aria-label={`Download ${item.filename}`}
-                  >
-                    <Download className="mr-1 size-3.5 opacity-70" aria-hidden />
-                    Download
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => void removeItem(item.id)}
-                    aria-label={`Remove ${item.filename} from library`}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </Button>
-                </div>
-              </li>
+                item={item}
+                formatRelative={formatRelative}
+                onDownload={handleDownload}
+                onRemove={removeItem}
+              />
             ))}
           </ul>
         )}

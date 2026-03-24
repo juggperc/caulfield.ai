@@ -154,6 +154,63 @@ export const ChatShell = () => {
   const loadServerConversationRef = useRef(loadServerConversation);
   loadServerConversationRef.current = loadServerConversation;
 
+  const convIdRef = useRef<string | null>(null);
+  convIdRef.current = convId;
+
+  const rebootstrapAfterConversationRemoved = useCallback(async () => {
+    if (!cfg?.databaseConfigured || !user?.id) return;
+    setHistoryReady(false);
+    setHistoryError(null);
+    try {
+      const listRes = await fetch("/api/conversations", {
+        credentials: "include",
+      });
+      if (!listRes.ok) {
+        throw new Error(`List failed (${listRes.status})`);
+      }
+      const list = (await listRes.json()) as { id: string }[];
+      let nextId = list[0]?.id;
+      if (!nextId) {
+        const postRes = await fetch("/api/conversations", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!postRes.ok) {
+          throw new Error(`Create conversation failed (${postRes.status})`);
+        }
+        const created = (await postRes.json()) as { id?: string };
+        if (!created.id) {
+          throw new Error("Create conversation returned no id");
+        }
+        nextId = created.id;
+      }
+      const dataRes = await fetch(`/api/conversations/${nextId}`, {
+        credentials: "include",
+      });
+      if (!dataRes.ok) {
+        throw new Error(`Load conversation failed (${dataRes.status})`);
+      }
+      const data = (await dataRes.json()) as ConversationPayload;
+      writeLastServerConversationId(nextId);
+      setConvId(nextId);
+      setInitialMessages(data.messages ?? []);
+      setHistoryError(null);
+      setHistoryReady(true);
+      window.dispatchEvent(new CustomEvent("caulfield:conversations-changed"));
+    } catch (e) {
+      console.error("[ChatShell] Rebootstrap after delete failed", e);
+      setHistoryError(
+        "Could not load your chat history. Check your connection and try again.",
+      );
+      setConvId(null);
+      setInitialMessages([]);
+      setHistoryReady(true);
+    }
+  }, [cfg?.databaseConfigured, user?.id]);
+
+  const rebootstrapRef = useRef(rebootstrapAfterConversationRemoved);
+  rebootstrapRef.current = rebootstrapAfterConversationRemoved;
+
   useEffect(() => {
     const onNewChatEvent = () => {
       void handleNewChatRef.current();
@@ -163,11 +220,25 @@ export const ChatShell = () => {
       if (typeof id !== "string" || !id.trim()) return;
       void loadServerConversationRef.current(id);
     };
+    const onConversationDeleted = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (typeof id !== "string") return;
+      if (id !== convIdRef.current) return;
+      void rebootstrapRef.current();
+    };
     window.addEventListener("caulfield:new-chat", onNewChatEvent);
     window.addEventListener("caulfield:load-chat", onLoadChatEvent);
+    window.addEventListener(
+      "caulfield:conversation-deleted",
+      onConversationDeleted,
+    );
     return () => {
       window.removeEventListener("caulfield:new-chat", onNewChatEvent);
       window.removeEventListener("caulfield:load-chat", onLoadChatEvent);
+      window.removeEventListener(
+        "caulfield:conversation-deleted",
+        onConversationDeleted,
+      );
     };
   }, []);
 

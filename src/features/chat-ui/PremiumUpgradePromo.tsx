@@ -139,6 +139,8 @@ export const PremiumUpgradePromo = () => {
     };
   }, [user?.id]);
 
+  // Wall clock vs persisted deadline; recomputing on render is intentional.
+  // eslint-disable-next-line react-hooks/purity -- snooze expiry is time-based
   const snoozed = Date.now() < snoozeUntil;
   /** Unlimited users still see the pill; hide only for paying subs with quota left. */
   const hidePromoForQuota =

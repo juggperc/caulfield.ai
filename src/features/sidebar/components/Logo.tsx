@@ -1,46 +1,9 @@
 "use client";
 
+import { createRandomLogoScene } from "@/features/sidebar/logo-blobs";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useMemo, useSyncExternalStore } from "react";
-
-type BlobSpec = {
-  id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  background: string;
-};
-
-type LogoScene = {
-  blobs: BlobSpec[];
-  grainSeed: number;
-};
-
-const createLogoScene = (): LogoScene => {
-  const blobCount = 5 + Math.floor(Math.random() * 5);
-  const blobs: BlobSpec[] = [];
-
-  for (let i = 0; i < blobCount; i++) {
-    const L = 0.12 + Math.random() * 0.78;
-    const C = 0.03 + Math.random() * 0.22;
-    const H = Math.random() * 360;
-    blobs.push({
-      id: `blob-${i}-${Math.random().toString(36).slice(2, 9)}`,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      w: 42 + Math.random() * 95,
-      h: 42 + Math.random() * 95,
-      background: `oklch(${L.toFixed(3)} ${C.toFixed(3)} ${H.toFixed(1)})`,
-    });
-  }
-
-  return {
-    blobs,
-    grainSeed: Math.random() * 1000,
-  };
-};
 
 const emptySubscribe = () => () => {};
 
@@ -68,7 +31,7 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
   const isAuthOrGate = isAuth || isGate;
 
   const scene = useMemo(
-    () => (isClientHydrated ? createLogoScene() : null),
+    () => (isClientHydrated ? createRandomLogoScene() : null),
     [isClientHydrated],
   );
 
