@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type DocumentSpec = {
@@ -152,7 +153,6 @@ export const GlobalSplashScreen = () => {
   return (
     <motion.div
       className="pointer-events-none fixed inset-0 z-[100] overflow-hidden"
-      aria-hidden
       initial={false}
       animate={isActive ? { opacity: 1 } : { opacity: 0 }}
       transition={{
@@ -160,11 +160,20 @@ export const GlobalSplashScreen = () => {
         ease: [0.22, 1, 0.36, 1],
       }}
     >
-      <div className="absolute inset-0 bg-background/92 backdrop-blur-xl" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.96_0.04_255_/_0.78),transparent_22%),radial-gradient(circle_at_center,oklch(0.82_0.08_250_/_0.5),transparent_40%),radial-gradient(circle_at_center,oklch(0.54_0.12_250_/_0.16),transparent_64%)] dark:bg-[radial-gradient(circle_at_center,oklch(0.66_0.1_250_/_0.54),transparent_24%),radial-gradient(circle_at_center,oklch(0.49_0.11_250_/_0.28),transparent_42%),radial-gradient(circle_at_center,oklch(0.24_0.03_250_/_0.78),transparent_70%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.35)_0%,transparent_24%,transparent_72%,rgba(99,102,241,0.08)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_24%,transparent_74%,rgba(196,181,253,0.08)_100%)]" />
+      <div
+        className="absolute inset-0 bg-background/92 backdrop-blur-xl"
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.96_0.04_255_/_0.78),transparent_22%),radial-gradient(circle_at_center,oklch(0.82_0.08_250_/_0.5),transparent_40%),radial-gradient(circle_at_center,oklch(0.54_0.12_250_/_0.16),transparent_64%)] dark:bg-[radial-gradient(circle_at_center,oklch(0.66_0.1_250_/_0.54),transparent_24%),radial-gradient(circle_at_center,oklch(0.49_0.11_250_/_0.28),transparent_42%),radial-gradient(circle_at_center,oklch(0.24_0.03_250_/_0.78),transparent_70%)]"
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.35)_0%,transparent_24%,transparent_72%,rgba(99,102,241,0.08)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_24%,transparent_74%,rgba(196,181,253,0.08)_100%)]"
+        aria-hidden
+      />
 
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" aria-hidden>
         {DOCUMENT_SPECS.map((documentSpec) => (
           <motion.div
             key={documentSpec.id}
@@ -222,6 +231,7 @@ export const GlobalSplashScreen = () => {
       <div className="absolute inset-0 flex items-center justify-center">
         <motion.div
           className="absolute size-72 rounded-full bg-[radial-gradient(circle,oklch(0.77_0.14_250_/_0.48)_0%,oklch(0.88_0.04_250_/_0.22)_34%,transparent_72%)] blur-3xl dark:bg-[radial-gradient(circle,oklch(0.76_0.11_250_/_0.54)_0%,oklch(0.52_0.12_250_/_0.32)_30%,transparent_70%)]"
+          aria-hidden
           initial={{ opacity: 0.35, scale: 0.72 }}
           animate={
             prefersReducedMotion
@@ -258,19 +268,24 @@ export const GlobalSplashScreen = () => {
           <span className="inline-flex items-center rounded-2xl border border-border/70 bg-background/88 px-5 py-2.5 text-xl font-bold tracking-tight text-foreground shadow-[0_18px_60px_-24px_rgba(99,102,241,0.4)] ring-1 ring-white/55 backdrop-blur-xl dark:border-white/12 dark:bg-black/26 dark:ring-white/12 md:text-2xl">
             caulfield.ai
           </span>
-          <motion.span
-            className="text-[0.7rem] font-medium uppercase tracking-[0.34em] text-muted-foreground/80"
+          <motion.div
+            className="flex flex-col items-center gap-1"
             initial={{ opacity: 0 }}
-            animate={{ opacity: prefersReducedMotion ? 0.7 : [0, 0, 0.7] }}
+            animate={{ opacity: prefersReducedMotion ? 1 : [0, 0, 1] }}
             transition={{
               duration: prefersReducedMotion ? 0.12 : 0.58,
               delay: prefersReducedMotion ? 0.08 : 0.28,
               ease: "easeOut",
               times: prefersReducedMotion ? undefined : [0, 0.64, 1],
             }}
+            role="status"
+            aria-label="Loading"
           >
-            Workspace loading
-          </motion.span>
+            <Loader2
+              className="size-7 text-muted-foreground animate-spin"
+              aria-hidden
+            />
+          </motion.div>
         </motion.div>
       </div>
     </motion.div>
