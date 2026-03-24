@@ -10,6 +10,7 @@ import {
   getAltchaHmacKey,
   shouldBypassAltchaVerificationInDev,
 } from "@/lib/altcha/server";
+import { writeAgentDebugLog } from "@/lib/debug/agent-log";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
@@ -100,6 +101,20 @@ const credentialsProvider = Credentials({
 
     const hmacKey = getAltchaHmacKey();
     const bypass = shouldBypassAltchaVerificationInDev();
+    // #region agent log
+    writeAgentDebugLog({
+      hypothesisId: "E",
+      location: "src/auth.ts:credentialsProvider.authorize",
+      message: "Credentials authorize ALTCHA gate",
+      data: {
+        bypass,
+        dbConfigured: Boolean(db),
+        hasHmacKey: Boolean(hmacKey),
+        hasAltchaPayload: Boolean(altchaPayload),
+        altchaPayloadLength: altchaPayload.length,
+      },
+    });
+    // #endregion
     if (!bypass) {
       if (!hmacKey) return null;
       if (!altchaPayload) return null;

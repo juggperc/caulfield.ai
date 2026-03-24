@@ -8,6 +8,7 @@ import {
   getAltchaHmacKey,
   shouldBypassAltchaVerificationInDev,
 } from "@/lib/altcha/server";
+import { writeAgentDebugLog } from "@/lib/debug/agent-log";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
@@ -57,6 +58,20 @@ export const POST = async (req: Request) => {
 
   const hmacKey = getAltchaHmacKey();
   const bypass = shouldBypassAltchaVerificationInDev();
+  // #region agent log
+  writeAgentDebugLog({
+    hypothesisId: "E",
+    location: "src/app/api/auth/register/route.ts:POST",
+    message: "Register ALTCHA gate",
+    data: {
+      bypass,
+      dbConfigured: Boolean(db),
+      hasHmacKey: Boolean(hmacKey),
+      hasAltchaPayload: Boolean(altchaPayload),
+      altchaPayloadLength: altchaPayload.length,
+    },
+  });
+  // #endregion
   if (!bypass) {
     if (!hmacKey) {
       return NextResponse.json(
