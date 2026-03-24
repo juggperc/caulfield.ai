@@ -115,9 +115,9 @@ const DOCUMENT_SPECS: readonly DocumentSpec[] = [
   },
 ];
 
-const ACTIVE_DURATION_MS = 1120;
+const ACTIVE_DURATION_MS = 1320;
 const REDUCED_MOTION_DURATION_MS = 420;
-const EXIT_DURATION_MS = 220;
+const EXIT_DURATION_MS = 260;
 
 export const GlobalSplashScreen = () => {
   const prefersReducedMotion = useReducedMotion();
@@ -154,19 +154,15 @@ export const GlobalSplashScreen = () => {
       className="pointer-events-none fixed inset-0 z-[100] overflow-hidden"
       aria-hidden
       initial={false}
-      animate={
-        isActive
-          ? { opacity: 1 }
-          : { opacity: 0, scale: 1.015, filter: "blur(8px)" }
-      }
+      animate={isActive ? { opacity: 1 } : { opacity: 0 }}
       transition={{
-        duration: prefersReducedMotion ? 0.16 : 0.22,
+        duration: prefersReducedMotion ? 0.18 : 0.26,
         ease: [0.22, 1, 0.36, 1],
       }}
     >
-      <div className="absolute inset-0 bg-background/96 backdrop-blur-xl" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.92_0.03_250_/_0.4),transparent_38%),radial-gradient(circle_at_center,oklch(0.52_0.13_250_/_0.12),transparent_62%)] dark:bg-[radial-gradient(circle_at_center,oklch(0.58_0.12_250_/_0.34),transparent_36%),radial-gradient(circle_at_center,oklch(0.9_0.02_220_/_0.08),transparent_64%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(255,255,255,0.18)_48%,transparent_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.06)_48%,rgba(255,255,255,0.02)_100%)]" />
+      <div className="absolute inset-0 bg-background/92 backdrop-blur-xl" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,oklch(0.96_0.04_255_/_0.78),transparent_22%),radial-gradient(circle_at_center,oklch(0.82_0.08_250_/_0.5),transparent_40%),radial-gradient(circle_at_center,oklch(0.54_0.12_250_/_0.16),transparent_64%)] dark:bg-[radial-gradient(circle_at_center,oklch(0.66_0.1_250_/_0.54),transparent_24%),radial-gradient(circle_at_center,oklch(0.49_0.11_250_/_0.28),transparent_42%),radial-gradient(circle_at_center,oklch(0.24_0.03_250_/_0.78),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.35)_0%,transparent_24%,transparent_72%,rgba(99,102,241,0.08)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_24%,transparent_74%,rgba(196,181,253,0.08)_100%)]" />
 
       <div className="absolute inset-0">
         {DOCUMENT_SPECS.map((documentSpec) => (
@@ -177,11 +173,11 @@ export const GlobalSplashScreen = () => {
             animate={
               prefersReducedMotion
                 ? {
-                    opacity: [0, 0.65, 0],
-                    scale: [0.94, 0.9, 0.82],
+                    opacity: [0, 0.92, 0],
+                    scale: [1, 0.96, 0.8],
                   }
                 : {
-                    opacity: [0, 1, 0.94, 0],
+                    opacity: [0, 1, 1, 0],
                     x: [documentSpec.startX, documentSpec.midX, "0vw", "0vw"],
                     y: [documentSpec.startY, documentSpec.midY, "0vh", "0vh"],
                     rotate: [
@@ -190,32 +186,34 @@ export const GlobalSplashScreen = () => {
                       0,
                       0,
                     ],
-                    scale: [documentSpec.scale, 1, 0.82, 0.66],
+                    scale: [documentSpec.scale, 1, 0.88, 0.56],
                     filter: [
                       "blur(0px)",
                       "blur(0px)",
                       "blur(0px)",
-                      "blur(10px)",
+                      "blur(12px)",
                     ],
                   }
             }
             transition={{
-              duration: documentAnimationDuration,
+              duration: prefersReducedMotion ? documentAnimationDuration : 1.02,
               delay: documentSpec.delay,
               ease: [0.2, 0.84, 0.24, 1],
-              times: prefersReducedMotion ? [0, 0.56, 1] : [0, 0.4, 0.78, 1],
+              times: prefersReducedMotion ? [0, 0.56, 1] : [0, 0.34, 0.72, 1],
             }}
             style={{
               width: documentSpec.width,
               height: documentSpec.height,
             }}
           >
-            <div className="relative size-full rounded-[1.6rem] border border-border/70 bg-background/88 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.5)] ring-1 ring-white/45 backdrop-blur-sm dark:border-white/12 dark:bg-white/7 dark:ring-white/12">
-              <div className="absolute inset-x-4 top-5 h-3 rounded-full bg-primary/12 dark:bg-white/14" />
-              <div className="absolute inset-x-4 top-11 h-2 rounded-full bg-foreground/8 dark:bg-white/9" />
-              <div className="absolute inset-x-4 top-[4.25rem] h-2 rounded-full bg-foreground/8 dark:bg-white/9" />
-              <div className="absolute inset-x-4 top-[5.75rem] h-2 rounded-full bg-foreground/8 dark:bg-white/9" />
-              <div className="absolute inset-x-4 bottom-5 h-12 rounded-2xl bg-[linear-gradient(180deg,transparent_0%,rgba(99,102,241,0.12)_100%)] dark:bg-[linear-gradient(180deg,transparent_0%,rgba(196,181,253,0.12)_100%)]" />
+            <div className="relative size-full overflow-hidden rounded-[1.6rem] border border-primary/18 bg-white/88 shadow-[0_30px_90px_-34px_rgba(15,23,42,0.52)] ring-1 ring-slate-900/5 backdrop-blur-sm dark:border-white/14 dark:bg-slate-950/62 dark:ring-white/12">
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0.96)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1)_0%,rgba(15,23,42,0.56)_100%)]" />
+              <div className="absolute right-0 top-0 h-9 w-9 bg-[linear-gradient(135deg,transparent_0%,transparent_49%,rgba(99,102,241,0.18)_50%,rgba(99,102,241,0.18)_100%)] dark:bg-[linear-gradient(135deg,transparent_0%,transparent_49%,rgba(196,181,253,0.18)_50%,rgba(196,181,253,0.18)_100%)]" />
+              <div className="absolute inset-x-4 top-5 h-3 rounded-full bg-primary/18 dark:bg-violet-200/18" />
+              <div className="absolute inset-x-4 top-11 h-2 rounded-full bg-slate-900/10 dark:bg-white/12" />
+              <div className="absolute inset-x-4 top-[4.25rem] h-2 rounded-full bg-slate-900/10 dark:bg-white/12" />
+              <div className="absolute inset-x-4 top-[5.75rem] h-2 rounded-full bg-slate-900/10 dark:bg-white/12" />
+              <div className="absolute inset-x-4 bottom-5 h-12 rounded-2xl bg-[linear-gradient(180deg,rgba(99,102,241,0.04)_0%,rgba(99,102,241,0.18)_100%)] dark:bg-[linear-gradient(180deg,rgba(196,181,253,0.04)_0%,rgba(196,181,253,0.18)_100%)]" />
             </div>
           </motion.div>
         ))}
@@ -223,16 +221,16 @@ export const GlobalSplashScreen = () => {
 
       <div className="absolute inset-0 flex items-center justify-center">
         <motion.div
-          className="absolute size-64 rounded-full bg-[radial-gradient(circle,oklch(0.75_0.13_250_/_0.36)_0%,oklch(0.88_0.03_250_/_0.18)_34%,transparent_72%)] blur-3xl dark:bg-[radial-gradient(circle,oklch(0.76_0.11_250_/_0.44)_0%,oklch(0.52_0.12_250_/_0.28)_30%,transparent_70%)]"
+          className="absolute size-72 rounded-full bg-[radial-gradient(circle,oklch(0.77_0.14_250_/_0.48)_0%,oklch(0.88_0.04_250_/_0.22)_34%,transparent_72%)] blur-3xl dark:bg-[radial-gradient(circle,oklch(0.76_0.11_250_/_0.54)_0%,oklch(0.52_0.12_250_/_0.32)_30%,transparent_70%)]"
           initial={{ opacity: 0.35, scale: 0.72 }}
           animate={
             prefersReducedMotion
               ? { opacity: 0.52, scale: 0.92 }
-              : { opacity: [0.24, 0.88, 0.58], scale: [0.7, 1.08, 0.96] }
+              : { opacity: [0.18, 0.94, 0.62], scale: [0.62, 1.1, 0.98] }
           }
           transition={{
-            duration: prefersReducedMotion ? 0.22 : 0.72,
-            delay: prefersReducedMotion ? 0 : 0.2,
+            duration: prefersReducedMotion ? 0.22 : 0.82,
+            delay: prefersReducedMotion ? 0 : 0.16,
             ease: [0.22, 1, 0.36, 1],
             times: prefersReducedMotion ? undefined : [0, 0.55, 1],
           }}
@@ -246,18 +244,18 @@ export const GlobalSplashScreen = () => {
               ? { opacity: 1, scale: 1, y: 0 }
               : {
                   opacity: [0, 0, 1, 1],
-                  scale: [0.94, 0.94, 1, 1],
-                  y: [10, 10, 0, 0],
+                  scale: [0.9, 0.9, 1, 1],
+                  y: [14, 14, 0, 0],
                 }
           }
           transition={{
-            duration: prefersReducedMotion ? 0.18 : 0.8,
-            delay: prefersReducedMotion ? 0.05 : 0.08,
+            duration: prefersReducedMotion ? 0.18 : 0.92,
+            delay: prefersReducedMotion ? 0.05 : 0.12,
             ease: [0.22, 1, 0.36, 1],
-            times: prefersReducedMotion ? undefined : [0, 0.46, 0.72, 1],
+            times: prefersReducedMotion ? undefined : [0, 0.42, 0.72, 1],
           }}
         >
-          <span className="inline-flex items-center rounded-2xl border border-border/70 bg-background/86 px-5 py-2.5 text-xl font-bold tracking-tight text-foreground shadow-[0_18px_60px_-24px_rgba(99,102,241,0.35)] ring-1 ring-white/55 backdrop-blur-xl dark:border-white/12 dark:bg-black/22 dark:ring-white/12 md:text-2xl">
+          <span className="inline-flex items-center rounded-2xl border border-border/70 bg-background/88 px-5 py-2.5 text-xl font-bold tracking-tight text-foreground shadow-[0_18px_60px_-24px_rgba(99,102,241,0.4)] ring-1 ring-white/55 backdrop-blur-xl dark:border-white/12 dark:bg-black/26 dark:ring-white/12 md:text-2xl">
             caulfield.ai
           </span>
           <motion.span
