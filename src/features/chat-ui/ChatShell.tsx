@@ -20,12 +20,19 @@ import {
   setLocalActiveConversationId,
   upsertConversationMeta,
 } from "./chat-history-scaffold";
+import { buildSmartChatTitleFromText } from "./chat-title";
 import { ChatInputBar } from "./ChatInputBar";
 import { MessageFeed } from "./MessageFeed";
 import { PremiumUpgradePromo } from "./PremiumUpgradePromo";
 
 type PublicConfig = {
   databaseConfigured: boolean;
+};
+
+type ConversationPayload = {
+  id: string;
+  title?: string;
+  messages?: UIMessage[];
 };
 
 const dispatchActiveConversation = (id: string) => {
@@ -89,7 +96,7 @@ export const ChatShell = () => {
           setHistoryReady(true);
           return;
         }
-        const data = (await dataRes.json()) as { messages?: UIMessage[] };
+        const data = (await dataRes.json()) as ConversationPayload;
         writeLastServerConversationId(id);
         setConvId(id);
         setInitialMessages(data.messages ?? []);
@@ -204,6 +211,26 @@ export const ChatShell = () => {
       }
 
       try {
+        const preferred = readLastServerConversationId();
+
+        if (preferred) {
+          const preferredRes = await fetch(`/api/conversations/${preferred}`, {
+            credentials: "include",
+          });
+          if (preferredRes.ok) {
+            const preferredConversation =
+              (await preferredRes.json()) as ConversationPayload;
+            if (!cancelled) {
+              writeLastServerConversationId(preferredConversation.id);
+              setConvId(preferredConversation.id);
+              setInitialMessages(preferredConversation.messages ?? []);
+              setHistoryError(null);
+              setHistoryReady(true);
+            }
+            return;
+          }
+        }
+
         const listRes = await fetch("/api/conversations", {
           credentials: "include",
         });
@@ -213,13 +240,7 @@ export const ChatShell = () => {
         const list = (await listRes.json()) as { id: string }[];
         if (cancelled) return;
 
-        const preferred = readLastServerConversationId();
-        const preferredOk =
-          preferred && list.some((row) => row.id === preferred)
-            ? preferred
-            : null;
-
-        let id = preferredOk ?? list[0]?.id;
+        let id = list[0]?.id;
         if (!id) {
           const postRes = await fetch("/api/conversations", {
             method: "POST",
@@ -243,7 +264,7 @@ export const ChatShell = () => {
         if (!dataRes.ok) {
           throw new Error(`Load conversation failed (${dataRes.status})`);
         }
-        const data = (await dataRes.json()) as { messages?: UIMessage[] };
+        const data = (await dataRes.json()) as ConversationPayload;
         if (cancelled) return;
 
         writeLastServerConversationId(id);
@@ -353,10 +374,28 @@ const ChatShellInner = ({
       persistLocalHistory,
       initialMessages,
       chatInstanceId: convId ?? "default-local-chat",
+      onServerTitleResolved: (title) => {
+        if (!convId) {
+          return;
+        }
+        window.dispatchEvent(
+          new CustomEvent("caulfield:conversations-changed", {
+            detail: { id: convId, title },
+          }),
+        );
+      },
     });
 
   const handleSend = async (text: string) => {
     clearError();
+    if (persistServerHistory && convId && messages.length === 0) {
+      const nextTitle = buildSmartChatTitleFromText(text);
+      window.dispatchEvent(
+        new CustomEvent("caulfield:conversations-changed", {
+          detail: { id: convId, title: nextTitle },
+        }),
+      );
+    }
     await sendMessage({ text });
   };
 

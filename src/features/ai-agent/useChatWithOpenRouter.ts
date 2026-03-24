@@ -11,7 +11,7 @@ import {
   saveConversationMessages,
   upsertConversationMeta,
 } from "@/features/chat-ui/chat-history-scaffold";
-import { getMessageText } from "@/features/chat-ui/message-utils";
+import { deriveChatTitle } from "@/features/chat-ui/chat-title";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { useMemo } from "react";
@@ -31,7 +31,14 @@ type UseChatWithOpenRouterOptions = {
   readonly persistLocalHistory?: boolean;
   readonly initialMessages?: UIMessage[];
   readonly chatInstanceId?: string;
+  readonly onServerTitleResolved?: (title: string) => void;
 };
+
+const MAX_NOTES_IN_REQUEST = 20;
+const MAX_RESEARCH_SNIPPETS_IN_REQUEST = 10;
+const MAX_MEMORY_ENTRIES_IN_REQUEST = 25;
+const MAX_WORKSPACE_DOCUMENTS_IN_REQUEST = 8;
+const MAX_WORKSPACE_SHEETS_IN_REQUEST = 6;
 
 export const useChatWithOpenRouter = (
   options?: UseChatWithOpenRouterOptions,
@@ -45,15 +52,39 @@ export const useChatWithOpenRouter = (
         }),
         body: () => {
           const { workspaceSheets } = getSheetsChatPayload();
+          const notes = getNotesSnapshot()
+            .slice(0, MAX_NOTES_IN_REQUEST)
+            .map((note) => ({
+              ...note,
+              content: note.content.slice(0, 8_000),
+            }));
+          const researchSnippets = getResearchSnapshot()
+            .slice(0, MAX_RESEARCH_SNIPPETS_IN_REQUEST)
+            .map((snippet) => ({
+              ...snippet,
+              body: snippet.body.slice(0, 14_000),
+            }));
+          const memory = getMemorySnapshot()
+            .slice(0, MAX_MEMORY_ENTRIES_IN_REQUEST)
+            .map((entry) => ({
+              ...entry,
+              body: entry.body.slice(0, 8_000),
+            }));
+          const workspaceDocuments = getWorkspaceDocumentsForChat()
+            .slice(0, MAX_WORKSPACE_DOCUMENTS_IN_REQUEST)
+            .map((doc) => ({
+              ...doc,
+              plainText: doc.plainText.slice(0, 3_200),
+            }));
           return {
-            notes: getNotesSnapshot(),
-            researchSnippets: getResearchSnapshot(),
-            memory: getMemorySnapshot(),
+            notes,
+            researchSnippets,
+            memory,
             ragIncludeMemory: readChatRagMemoryEnabled(),
             ragIncludeResearch: readChatRagResearchEnabled(),
             integrationKeys: readIntegrationKeysForChatBody(),
-            workspaceDocuments: getWorkspaceDocumentsForChat(),
-            workspaceSheets,
+            workspaceDocuments,
+            workspaceSheets: workspaceSheets.slice(0, MAX_WORKSPACE_SHEETS_IN_REQUEST),
           };
         },
       }),
@@ -93,35 +124,30 @@ export const useChatWithOpenRouter = (
       }
       const sid = options?.serverConversationId ?? null;
       const persistServer = Boolean(options?.persistServerHistory && sid);
+      const title = deriveChatTitle(messages);
       if (persistServer) {
         const res = await fetch(`/api/conversations/${sid}/messages`, {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages }),
+          body: JSON.stringify({ messages, title }),
         });
         if (!res.ok) {
           console.error(
             "[useChatWithOpenRouter] Failed to persist messages to server",
             res.status,
           );
+        } else if (title) {
+          options?.onServerTitleResolved?.(title);
         }
       }
 
       const lid = options?.localConversationId ?? null;
       if (options?.persistLocalHistory && lid) {
         saveConversationMessages(lid, messages);
-        const firstUser = messages.find((m) => m.role === "user");
-        const rawTitle = firstUser ? getMessageText(firstUser).trim() : "";
-        const title =
-          rawTitle.length > 0
-            ? rawTitle.length > 80
-              ? `${rawTitle.slice(0, 80)}…`
-              : rawTitle
-            : "New chat";
         upsertConversationMeta({
           id: lid,
-          title,
+          title: title || "New chat",
           updatedAt: Date.now(),
         });
       }

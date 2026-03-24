@@ -24,10 +24,14 @@ export const PUT = async (req: Request, ctx: RouteCtx) => {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = (await req.json()) as { messages?: UIMessage[] };
+  const body = (await req.json()) as { messages?: UIMessage[]; title?: string };
   if (!Array.isArray(body.messages)) {
     return NextResponse.json({ error: "Invalid messages" }, { status: 400 });
   }
+  const nextTitle =
+    typeof body.title === "string" && body.title.trim().length > 0
+      ? body.title.trim()
+      : null;
 
   await db.delete(chatMessages).where(eq(chatMessages.conversationId, id));
 
@@ -44,7 +48,10 @@ export const PUT = async (req: Request, ctx: RouteCtx) => {
 
   await db
     .update(conversations)
-    .set({ updatedAt: new Date() })
+    .set({
+      updatedAt: new Date(),
+      ...(nextTitle ? { title: nextTitle } : {}),
+    })
     .where(eq(conversations.id, id));
 
   return NextResponse.json({ ok: true });
