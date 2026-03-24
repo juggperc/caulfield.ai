@@ -276,7 +276,6 @@ export const SheetsWorkspace = () => {
                           </td>
                           {Array.from({ length: visibleCols }, (_, c) => {
                             const cell = selectedSheet.rows[r]?.[c];
-                            const value = cell?.raw ?? "";
                             const displayValue = cell?.display ?? "";
                             const isActive =
                               activeCell?.r === r && activeCell?.c === c;
@@ -287,7 +286,7 @@ export const SheetsWorkspace = () => {
                               >
                                 <input
                                   type="text"
-                                  value={value}
+                                  value={isActive ? cell?.raw ?? "" : displayValue}
                                   onFocus={() => setActiveCell({ r, c })}
                                   onChange={(e) =>
                                     updateCellInput(
@@ -300,11 +299,6 @@ export const SheetsWorkspace = () => {
                                   className="box-border h-8 w-full min-w-[6.5rem] border-0 bg-transparent px-2 py-1 text-[13px] text-foreground outline-none focus:bg-accent/50 focus:ring-2 focus:ring-inset focus:ring-ring/60"
                                   aria-label={`Cell ${colLabel(c)}${r + 1}`}
                                 />
-                                {!isActive && displayValue && displayValue !== value ? (
-                                  <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center px-2 text-[13px] text-foreground">
-                                    {displayValue}
-                                  </div>
-                                ) : null}
                               </td>
                             );
                           })}
