@@ -57,12 +57,15 @@ const useIsClientHydrated = () =>
 
 type LogoProps = {
   /** `auth`: sign-in card header with gradient blend into `bg-card` below */
-  readonly variant?: "sidebar" | "auth";
+  /** `gate`: full sign-in landing hero; blends into page `background` */
+  readonly variant?: "sidebar" | "auth" | "gate";
 };
 
 export const Logo = ({ variant = "sidebar" }: LogoProps) => {
   const isClientHydrated = useIsClientHydrated();
   const isAuth = variant === "auth";
+  const isGate = variant === "gate";
+  const isAuthOrGate = isAuth || isGate;
 
   const scene = useMemo(
     () => (isClientHydrated ? createLogoScene() : null),
@@ -73,9 +76,11 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
     <div
       className={cn(
         "relative w-full shrink-0 overflow-hidden bg-muted dark:bg-background",
-        isAuth
-          ? "h-40 rounded-t-xl border-0"
-          : "h-28 border-b border-border",
+        isGate
+          ? "h-[min(42vh,320px)] rounded-2xl border border-border md:h-[min(38vh,360px)]"
+          : isAuth
+            ? "h-40 rounded-t-xl border-0"
+            : "h-28 border-b border-border",
       )}
     >
       {scene ? (
@@ -83,10 +88,15 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
           <div
             className={cn(
               "pointer-events-none absolute inset-0 scale-[1.35]",
+              isGate &&
+                "[mask-image:linear-gradient(to_bottom,black_0%,black_40%,rgba(0,0,0,0.55)_72%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_40%,rgba(0,0,0,0.55)_72%,transparent_100%)]",
               isAuth &&
+                !isGate &&
                 "[mask-image:linear-gradient(to_bottom,black_0%,black_42%,rgba(0,0,0,0.65)_68%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_42%,rgba(0,0,0,0.65)_68%,transparent_100%)]",
             )}
-            style={{ filter: isAuth ? "blur(42px)" : "blur(36px)" }}
+            style={{
+              filter: isAuthOrGate ? (isGate ? "blur(48px)" : "blur(42px)") : "blur(36px)",
+            }}
             aria-hidden
           >
             {scene.blobs.map((blob, i) => (
@@ -123,7 +133,10 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
           <motion.div
             className={cn(
               "pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.14]",
+              isGate &&
+                "[mask-image:linear-gradient(to_bottom,black_0%,black_46%,transparent_90%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_46%,transparent_90%)]",
               isAuth &&
+                !isGate &&
                 "[mask-image:linear-gradient(to_bottom,black_0%,black_48%,transparent_92%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_48%,transparent_92%)]",
             )}
             aria-hidden
@@ -138,7 +151,32 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
             }}
           />
 
-          {isAuth ? (
+          {isGate ? (
+            <>
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/25 via-transparent via-45% to-transparent dark:from-background/35"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent from-[46%] via-background/70 via-[74%] to-background dark:via-background/80"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-b from-transparent to-background dark:to-background"
+                aria-hidden
+              />
+              <motion.div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%] backdrop-blur-md [mask-image:linear-gradient(to_bottom,transparent_0%,black_32%,black_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_32%,black_100%)]"
+                aria-hidden
+                animate={{ opacity: [0.32, 0.5, 0.38] }}
+                transition={{
+                  duration: 14,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </>
+          ) : isAuth ? (
             <>
               <div
                 className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 via-transparent via-45% to-transparent dark:from-background/30"
@@ -172,7 +210,7 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
       <div
         className={cn(
           "absolute inset-0 flex p-3",
-          isAuth
+          isAuthOrGate
             ? "items-center justify-center"
             : "flex-col justify-between",
         )}
@@ -180,9 +218,11 @@ export const Logo = ({ variant = "sidebar" }: LogoProps) => {
         <span
           className={cn(
             "inline-flex w-fit rounded-md border border-border/70 bg-background/88 font-sans font-bold tracking-tight text-foreground shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/72",
-            isAuth
-              ? "px-3 py-1.5 text-xl"
-              : "px-2.5 py-1 text-lg",
+            isGate
+              ? "px-3 py-1.5 text-xl md:text-2xl"
+              : isAuth
+                ? "px-3 py-1.5 text-xl"
+                : "px-2.5 py-1 text-lg",
           )}
         >
           caulfield.ai
