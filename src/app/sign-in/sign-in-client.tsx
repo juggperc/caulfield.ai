@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchBrowserProtectionToken } from "@/lib/auth/browser-protection-client";
 import { useSession } from "@/features/auth/session-context";
 import { Logo } from "@/features/sidebar/components/Logo";
 import { cn } from "@/lib/utils";
@@ -12,8 +13,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -24,10 +23,17 @@ const safeCallbackUrl = (raw: string | null): string => {
   return raw;
 };
 
+const getSuspiciousSubmitMessage = (error: unknown) => {
+  if (typeof error !== "string") return null;
+  if (error === "AccessDenied") {
+    return "Please wait a moment and try again.";
+  }
+  return null;
+};
+
 type AppConfigJson = {
   credentialAuthConfigured?: boolean;
   authProvidersConfigured?: boolean;
-  altchaDevBypass?: boolean;
   databaseConfigured?: boolean;
 };
 
@@ -40,7 +46,6 @@ export const SignInClient = () => {
   const [credentialAuthConfigured, setCredentialAuthConfigured] = useState<
     boolean | null
   >(null);
-  const [altchaDevBypass, setAltchaDevBypass] = useState(false);
   const [databaseConfigured, setDatabaseConfigured] = useState<boolean | null>(
     null,
   );
@@ -48,12 +53,10 @@ export const SignInClient = () => {
   const [panel, setPanel] = useState<"signin" | "register">("signin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [altchaPayload, setAltchaPayload] = useState<string | null>(null);
-  const [altchaKey, setAltchaKey] = useState(0);
+  const [botField, setBotField] = useState("");
+  const [browserProtectionToken, setBrowserProtectionToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [altchaScriptReady, setAltchaScriptReady] = useState(false);
-  const altchaHostRef = useRef<HTMLElement | null>(null);
 
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
   useEffect(() => {
@@ -103,7 +106,6 @@ export const SignInClient = () => {
         const cred =
           j.credentialAuthConfigured ?? j.authProvidersConfigured ?? false;
         setCredentialAuthConfigured(Boolean(cred));
-        setAltchaDevBypass(Boolean(j.altchaDevBypass));
         setDatabaseConfigured(Boolean(j.databaseConfigured));
       })
       .catch(() => {
@@ -119,68 +121,36 @@ export const SignInClient = () => {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        await import("altcha");
-        if (!cancelled) setAltchaScriptReady(true);
-      } catch {
-        if (!cancelled) setLoadError("Could not load ALTCHA widget.");
+    setFormError(null);
+    setBotField("");
+    void fetchBrowserProtectionToken().then((token) => {
+      if (!cancelled) {
+        setBrowserProtectionToken(token);
       }
-    })();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [panel]);
+
+  const hasCredentialsProvider = providerIds.includes("credentials");
+  const hasDevProvider = providerIds.includes("dev");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchBrowserProtectionToken().then((token) => {
+      if (!cancelled) {
+        setBrowserProtectionToken(token);
+      }
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const resetAltcha = useCallback(() => {
-    setAltchaPayload(null);
-    setAltchaKey((k) => k + 1);
-  }, []);
-
-  useEffect(() => {
-    setFormError(null);
-    resetAltcha();
-  }, [panel, resetAltcha]);
-
-  const hasCredentialsProvider = providerIds.includes("credentials");
-  const hasDevProvider = providerIds.includes("dev");
-  const requireAltcha = !altchaDevBypass;
-
   const handleDevSignIn = useCallback(() => {
     void signIn("dev", { callbackUrl, redirect: true });
   }, [callbackUrl]);
-
-  /** ALTCHA may verify before a paint; useLayoutEffect + `verified` avoids missing payload vs. relying on statechange alone. */
-  useLayoutEffect(() => {
-    const el = altchaHostRef.current;
-    if (!el || altchaDevBypass || !altchaScriptReady) return;
-
-    const handleStateChange = (ev: Event) => {
-      const ce = ev as CustomEvent<{ state?: string; payload?: string }>;
-      const { state, payload } = ce.detail ?? {};
-      if (state === "verified" && typeof payload === "string" && payload) {
-        setAltchaPayload(payload);
-      }
-      if (state === "error" || state === "expired") {
-        setAltchaPayload(null);
-      }
-    };
-
-    const handleVerified = (ev: Event) => {
-      const ce = ev as CustomEvent<{ payload?: string }>;
-      const payload = ce.detail?.payload;
-      if (typeof payload === "string" && payload) {
-        setAltchaPayload(payload);
-      }
-    };
-
-    el.addEventListener("statechange", handleStateChange);
-    el.addEventListener("verified", handleVerified);
-    return () => {
-      el.removeEventListener("statechange", handleStateChange);
-      el.removeEventListener("verified", handleVerified);
-    };
-  }, [altchaDevBypass, altchaKey, altchaScriptReady]);
 
   const handleSubmitSignIn = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -190,22 +160,22 @@ export const SignInClient = () => {
         setFormError("Username/password sign-in is not available.");
         return;
       }
-      if (requireAltcha && !altchaPayload) {
-        setFormError("Complete the verification challenge first.");
-        return;
-      }
       setBusy(true);
       try {
         const res = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          browserToken: browserProtectionToken,
+          website: botField,
           callbackUrl,
           redirect: false,
         });
         if (res?.error) {
-          setFormError("Invalid username or password.");
-          resetAltcha();
+          setFormError(
+            getSuspiciousSubmitMessage(res.error) ??
+              "Invalid username or password.",
+          );
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         if (res?.ok) {
@@ -217,13 +187,11 @@ export const SignInClient = () => {
       }
     },
     [
-      altchaDevBypass,
-      altchaPayload,
       callbackUrl,
+      botField,
+      browserProtectionToken,
       hasCredentialsProvider,
       password,
-      requireAltcha,
-      resetAltcha,
       router,
       username,
     ],
@@ -233,10 +201,6 @@ export const SignInClient = () => {
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setFormError(null);
-      if (requireAltcha && !altchaPayload) {
-        setFormError("Complete the verification challenge first.");
-        return;
-      }
       setBusy(true);
       try {
         const res = await fetch("/api/auth/register", {
@@ -245,7 +209,8 @@ export const SignInClient = () => {
           body: JSON.stringify({
             username: username.trim(),
             password,
-            altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+            browserToken: browserProtectionToken,
+            honeypot: botField,
           }),
         });
         if (!res.ok) {
@@ -259,20 +224,24 @@ export const SignInClient = () => {
             /* keep default */
           }
           setFormError(message);
-          resetAltcha();
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         const signRes = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: altchaDevBypass ? "" : (altchaPayload ?? ""),
+          browserToken: browserProtectionToken,
+          website: botField,
           callbackUrl,
           redirect: false,
         });
         if (signRes?.error) {
-          setFormError("Account created. Sign in with your new credentials.");
+          setFormError(
+            getSuspiciousSubmitMessage(signRes.error) ??
+              "Account created. Sign in with your new credentials.",
+          );
           setPanel("signin");
-          resetAltcha();
+          setBrowserProtectionToken(await fetchBrowserProtectionToken());
           return;
         }
         if (signRes?.ok) {
@@ -281,18 +250,16 @@ export const SignInClient = () => {
         }
       } catch {
         setFormError("Something went wrong. Try again.");
-        resetAltcha();
+        setBrowserProtectionToken(await fetchBrowserProtectionToken());
       } finally {
         setBusy(false);
       }
     },
     [
-      altchaDevBypass,
-      altchaPayload,
       callbackUrl,
+      botField,
+      browserProtectionToken,
       password,
-      requireAltcha,
-      resetAltcha,
       router,
       username,
     ],
@@ -339,16 +306,8 @@ export const SignInClient = () => {
                 ,{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">
                   AUTH_SECRET
-                </code>
-                , and{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  ALTCHA_HMAC_KEY
                 </code>{" "}
-                (or{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  ALTCHA_DEV_BYPASS=1
-                </code>{" "}
-                in development). See README.
+                and redeploy. See README.
               </p>
             ) : null}
 
@@ -413,6 +372,18 @@ export const SignInClient = () => {
                   }
                   noValidate
                 >
+                  <input
+                    type="text"
+                    name="company"
+                    value={botField}
+                    onChange={(ev) => {
+                      setBotField(ev.target.value);
+                    }}
+                    className="hidden"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="signin-username">Username</Label>
                     <Input
@@ -451,32 +422,6 @@ export const SignInClient = () => {
                       aria-required
                     />
                   </div>
-
-                  {altchaDevBypass ? (
-                    <p className="text-xs text-muted-foreground">
-                      ALTCHA verification is bypassed in this development
-                      environment.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium text-foreground">
-                        Verification
-                      </span>
-                      {altchaScriptReady ? (
-                        <div key={altchaKey} className="block w-full">
-                          <altcha-widget
-                            ref={altchaHostRef}
-                            challengeurl="/api/altcha/challenge"
-                            credentials="include"
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Loading verification…
-                        </p>
-                      )}
-                    </div>
-                  )}
 
                   {formError ? (
                     <p className="text-sm text-destructive" role="alert">
@@ -528,10 +473,6 @@ export const SignInClient = () => {
                     <code className="rounded bg-muted px-1 py-0.5 text-xs">
                       AUTH_SECRET
                     </code>
-                    , and{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      ALTCHA_HMAC_KEY
-                    </code>{" "}
                     on the host, redeploy, and check server logs.
                   </p>
                 )}
