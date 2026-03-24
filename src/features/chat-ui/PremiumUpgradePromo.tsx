@@ -53,7 +53,7 @@ const CAPABILITIES = [
   { icon: MessageSquare, label: "Chat + tools", hint: "Models, research, memory" },
   { icon: BookOpen, label: "Research & docs", hint: "Deep context when you need it" },
   { icon: LibraryBig, label: "Library & files", hint: "Keep outputs organized" },
-  { icon: Zap, label: "Connectors", hint: "Marketplace & API keys" },
+  { icon: Zap, label: "Connectors", hint: "Web search & API keys" },
 ] as const;
 
 const readSnoozeUntil = (): number => {

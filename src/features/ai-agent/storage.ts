@@ -59,6 +59,12 @@ export type IntegrationKeysBody = {
   githubToken?: string;
 };
 
+let _webSearchOverride: boolean | null = null;
+
+export const setWebSearchOverride = (enabled: boolean): void => {
+  _webSearchOverride = enabled;
+};
+
 export const readIntegrationKeysForChatBody = (): IntegrationKeysBody => {
   if (typeof window === "undefined") return {};
   const out: IntegrationKeysBody = {};
@@ -68,8 +74,9 @@ export const readIntegrationKeysForChatBody = (): IntegrationKeysBody => {
   const exk = localStorage.getItem(STORAGE_KEYS.exaApiKey)?.trim() ?? "";
   const exe = localStorage.getItem(STORAGE_KEYS.exaEnabled) === "1";
   if (exe && exk) out.exaApiKey = exk;
-  // Default on when unset; only explicit "0" disables (see Marketplace copy).
-  if (localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) !== "0") {
+  if (_webSearchOverride !== null) {
+    out.nativeSearchEnabled = _webSearchOverride;
+  } else if (localStorage.getItem(STORAGE_KEYS.nativeSearchEnabled) !== "0") {
     out.nativeSearchEnabled = true;
   }
   if (localStorage.getItem(STORAGE_KEYS.githubEnabled) === "1") {

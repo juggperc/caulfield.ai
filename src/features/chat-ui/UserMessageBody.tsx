@@ -1,12 +1,13 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import { memo } from "react";
 
 type UserMessageBodyProps = {
   readonly message: UIMessage;
 };
 
-export const UserMessageBody = ({ message }: UserMessageBodyProps) => {
+export const UserMessageBody = memo(({ message }: UserMessageBodyProps) => {
   return (
     <div className="flex flex-col gap-2">
       {message.parts.map((part, i) => {
@@ -45,4 +46,5 @@ export const UserMessageBody = ({ message }: UserMessageBodyProps) => {
       })}
     </div>
   );
-};
+});
+UserMessageBody.displayName = "UserMessageBody";

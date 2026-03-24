@@ -396,7 +396,7 @@ When the user asks for an Excel spreadsheet, a Word document, or a CSV/Markdown/
 
   const webHarnessOff = !webToolsAvailable
     ? `## Live web lookup (disabled for this session)
-No live web search tools are available. If the user asks for **breaking news**, **search the web**, or other **fresh public** facts, tell them to open **Marketplace** and enable **Built-in web lookup** and/or add an **Exa** API key, then retry. You still have notes, memory, workspace, docs/sheets context, and file-creation tools.`
+No live web search tools are available. If the user asks for **breaking news**, **search the web**, or other **fresh public** facts, tell them to toggle **Web search on** using the globe button in the chat bar, then retry. You still have notes, memory, workspace, docs/sheets context, and file-creation tools.`
     : "";
 
   const webHarnessOn = webToolsAvailable
@@ -428,7 +428,7 @@ ${webHarnessOff}
 
 ${
   c7Key || exaKey || nativeOn || githubOn
-    ? `## Marketplace connectors (enabled for this session)
+    ? `## Connectors (enabled for this session)
 ${
   nativeOn
     ? `- **Built-in web lookup:** \`native_web_lookup\` — DuckDuckGo instant data + Wikipedia search (no vendor API key).`

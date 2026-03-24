@@ -7,13 +7,14 @@ import {
   writeLastServerConversationId,
 } from "@/features/auth/storage-scope";
 import { useChatWithOpenRouter } from "@/features/ai-agent/useChatWithOpenRouter";
+import { setWebSearchOverride } from "@/features/ai-agent/storage";
 import type { MemoryEntry } from "@/features/memory/memory-types";
 import { useMemory } from "@/features/memory/memory-provider";
 import { useNotes } from "@/features/notes/notes-context";
 import type { Note } from "@/features/notes/types";
 import type { UIMessage } from "ai";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getOrCreateLocalConversationId,
   loadConversationMessages,
@@ -435,6 +436,17 @@ const ChatShellInner = ({
   syncNotesFromAgent,
   syncMemoryFromAgent,
 }: InnerProps) => {
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+
+  useEffect(() => {
+    setWebSearchOverride(webSearchEnabled);
+  }, [webSearchEnabled]);
+
+  const handleToggleWebSearch = useMemo(
+    () => () => setWebSearchEnabled((p) => !p),
+    [],
+  );
+
   const { messages, sendMessage, status, stop, setMessages, error, clearError } =
     useChatWithOpenRouter({
       onNotesSyncedFromAgent: syncNotesFromAgent,
@@ -529,6 +541,8 @@ const ChatShellInner = ({
         onStop={stop}
         onClear={handleClear}
         disableClear={messages.length === 0}
+        webSearchEnabled={webSearchEnabled}
+        onToggleWebSearch={handleToggleWebSearch}
       />
     </div>
   );

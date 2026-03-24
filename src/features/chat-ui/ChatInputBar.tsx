@@ -33,6 +33,8 @@ type ChatInputBarProps = {
   readonly onStop: () => Promise<void>;
   readonly onClear: () => void;
   readonly disableClear: boolean;
+  readonly webSearchEnabled: boolean;
+  readonly onToggleWebSearch: () => void;
 };
 
 export const ChatInputBar = ({
@@ -41,6 +43,8 @@ export const ChatInputBar = ({
   onStop,
   onClear,
   disableClear,
+  webSearchEnabled,
+  onToggleWebSearch,
 }: ChatInputBarProps) => {
   const initialInput = useMemo(() => {
     const pending = peekPendingChatInput();
@@ -169,6 +173,8 @@ export const ChatInputBar = ({
           onAttachClick={handleAttachClick}
           attachDisabled={attachDisabled}
           attachTitle={attachTitle}
+          webSearchEnabled={webSearchEnabled}
+          onToggleWebSearch={onToggleWebSearch}
         />
         {filesActive && pendingFiles.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 border-t border-border/60 px-2 py-2">

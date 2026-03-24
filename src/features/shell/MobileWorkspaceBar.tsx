@@ -9,7 +9,6 @@ const PANEL_LABELS: Record<AppPanel, string> = {
   notes: "Notes",
   docs: "Docs",
   library: "Library",
-  marketplace: "Marketplace",
   settings: "Settings",
 };
 

@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai";
 import { motion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
 import { UserMessageBody } from "./UserMessageBody";
 
@@ -24,6 +24,49 @@ const parseApiError = (
   }
   return { type: "generic", message: msg };
 };
+
+const messageRowSpring = {
+  type: "spring" as const,
+  stiffness: 500,
+  damping: 30,
+};
+
+type MessageRowProps = {
+  readonly message: UIMessage;
+};
+
+const MessageRow = memo(
+  ({ message }: MessageRowProps) => {
+    const isUser = message.role === "user";
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={messageRowSpring}
+        style={{ willChange: "opacity, transform" }}
+        className={isUser ? "flex justify-end" : "flex justify-start"}
+      >
+        <div
+          className={
+            isUser
+              ? "max-w-[85%] rounded-2xl border border-border bg-muted px-4 py-2.5 text-[0.9375rem] leading-relaxed text-foreground shadow-sm dark:border-border/80 dark:bg-accent/20 dark:shadow-none"
+              : "max-w-full min-w-0 text-[0.9375rem] leading-relaxed"
+          }
+        >
+          {isUser ? (
+            <UserMessageBody message={message} />
+          ) : (
+            <AssistantMessageBody message={message} />
+          )}
+        </div>
+      </motion.div>
+    );
+  },
+  (prev, next) =>
+    prev.message.id === next.message.id &&
+    prev.message.parts.length === next.message.parts.length,
+);
+MessageRow.displayName = "MessageRow";
 
 export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,38 +105,9 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
           <p className="text-sm text-muted-foreground">Start a conversation.</p>
         ) : null}
 
-        {messages.map((message) => {
-          const isUser = message.role === "user";
-
-          return (
-            <motion.div
-              key={message.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className={
-                isUser
-                  ? "flex justify-end"
-                  : "flex justify-start"
-              }
-            >
-              <div
-                className={
-                  isUser
-                    ? "max-w-[85%] rounded-2xl border border-border bg-muted px-4 py-2.5 text-[0.9375rem] leading-relaxed text-foreground shadow-sm dark:border-border/80 dark:bg-accent/20 dark:shadow-none"
-                    : "max-w-full min-w-0 text-[0.9375rem] leading-relaxed"
-                }
-              >
-                {isUser ? (
-                  <UserMessageBody message={message} />
-                ) : (
-                  <AssistantMessageBody message={message} />
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+        {messages.map((message) => (
+          <MessageRow key={message.id} message={message} />
+        ))}
 
         {error ? (
           <ErrorBanner error={error} />
@@ -150,4 +164,3 @@ const ErrorBanner = ({ error }: { error: Error }) => {
     </p>
   );
 };
-

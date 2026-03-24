@@ -3,5 +3,4 @@ export type AppPanel =
   | "notes"
   | "docs"
   | "library"
-  | "marketplace"
   | "settings";

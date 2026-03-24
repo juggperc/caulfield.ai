@@ -11,7 +11,6 @@ import { DocsShell } from "@/features/documents/DocsShell";
 import { SheetsProvider } from "@/features/documents/sheets-context";
 import { LibraryProvider } from "@/features/library/library-context";
 import { LibraryShell } from "@/features/library/LibraryShell";
-import { MarketplaceShell } from "@/features/marketplace/MarketplaceShell";
 import { MemoryProvider } from "@/features/memory/memory-provider";
 import { NotesProvider } from "@/features/notes/notes-context";
 import { NotesShell } from "@/features/notes/NotesShell";
@@ -96,8 +95,6 @@ export const AppLayout = () => {
                                 <DocsShell />
                               ) : panel === "library" ? (
                                 <LibraryShell />
-                              ) : panel === "marketplace" ? (
-                                <MarketplaceShell />
                               ) : (
                                 <AccountSettings />
                               )}

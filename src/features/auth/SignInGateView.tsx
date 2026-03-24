@@ -5,11 +5,11 @@ import { Logo } from "@/features/sidebar/components/Logo";
 import { motion } from "framer-motion";
 import {
   FileText,
+  Globe,
   LayoutGrid,
   LibraryBig,
   LogIn,
   MessageSquare,
-  Store,
 } from "lucide-react";
 
 const FEATURES = [
@@ -17,7 +17,7 @@ const FEATURES = [
   { icon: FileText, label: "Notes" },
   { icon: LayoutGrid, label: "Documents" },
   { icon: LibraryBig, label: "Library" },
-  { icon: Store, label: "Marketplace" },
+  { icon: Globe, label: "Web search" },
 ] as const;
 
 type SignInGateViewProps = {
