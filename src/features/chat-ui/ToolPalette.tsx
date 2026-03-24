@@ -9,6 +9,9 @@ type ToolPaletteProps = {
   readonly onStop: () => void;
   readonly isStreaming: boolean;
   readonly disableClear: boolean;
+  readonly onAttachClick: () => void;
+  readonly attachDisabled: boolean;
+  readonly attachTitle: string;
 };
 
 export const ToolPalette = ({
@@ -16,6 +19,9 @@ export const ToolPalette = ({
   onStop,
   isStreaming,
   disableClear,
+  onAttachClick,
+  attachDisabled,
+  attachTitle,
 }: ToolPaletteProps) => {
   return (
     <div className="flex items-center gap-1 border-t border-border/80 px-2 py-1.5">
@@ -25,9 +31,10 @@ export const ToolPalette = ({
           variant="ghost"
           size="icon-xs"
           className="text-muted-foreground"
-          disabled
-          aria-label="Attach file (coming soon)"
-          title="Attach"
+          disabled={attachDisabled}
+          aria-label={attachTitle}
+          title={attachTitle}
+          onClick={onAttachClick}
         >
           <Paperclip className="size-3.5" aria-hidden />
         </Button>

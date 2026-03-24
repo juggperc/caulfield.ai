@@ -2,13 +2,15 @@
 
 import { DictationMicButton } from "@/components/DictationMicButton";
 import { Button } from "@/components/ui/button";
+import { readChatMode } from "@/features/ai-agent/storage";
+import { useOpenRouterUi } from "@/features/openrouter/OpenRouterUiProvider";
 import {
   clearPendingChatInput,
   peekPendingChatInput,
 } from "@/features/ai-context-menu/ai-pending-prompts";
-import type { ChatStatus } from "ai";
 import { cn } from "@/lib/utils";
-import { ArrowUp } from "lucide-react";
+import type { ChatStatus } from "ai";
+import { ArrowUp, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -22,9 +24,12 @@ import { ModelChipButton } from "./ModelChipButton";
 import { SettingsPopover } from "./SettingsPopover";
 import { ToolPalette } from "./ToolPalette";
 
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGES = 4;
+
 type ChatInputBarProps = {
   readonly status: ChatStatus;
-  readonly onSend: (text: string) => Promise<void>;
+  readonly onSend: (text: string, files?: File[]) => Promise<void>;
   readonly onStop: () => Promise<void>;
   readonly onClear: () => void;
   readonly disableClear: boolean;
@@ -40,12 +45,26 @@ export const ChatInputBar = ({
   const initialInput = useMemo(() => {
     const pending = peekPendingChatInput();
     if (!pending) return { text: "", focus: false };
-    return { text: pending.text, focus: pending.focus };
+    return { text: pending.text, focus: false };
   }, []);
   const [input, setInput] = useState(initialInput.text);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { selectionEpoch } = useOpenRouterUi();
 
   const isBusy = status === "submitted" || status === "streaming";
+  void selectionEpoch;
+  const chatMode = readChatMode();
+  const filesActive = chatMode !== "free";
+  const attachDisabled =
+    isBusy || chatMode === "free" || pendingFiles.length >= MAX_IMAGES;
+  const attachTitle =
+    chatMode === "free"
+      ? "Images require Thinking mode (free model has no vision)"
+      : pendingFiles.length >= MAX_IMAGES
+        ? `At most ${MAX_IMAGES} images`
+        : "Attach image";
 
   useLayoutEffect(() => {
     clearPendingChatInput();
@@ -60,11 +79,44 @@ export const ChatInputBar = ({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
+  const handleAttachClick = useCallback(() => {
+    if (readChatMode() === "free") return;
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const list = e.target.files;
+      if (!list?.length) return;
+      const next: File[] = [...pendingFiles];
+      for (const f of Array.from(list)) {
+        if (!f.type.startsWith("image/")) continue;
+        if (f.size > MAX_IMAGE_BYTES) continue;
+        if (next.length >= MAX_IMAGES) break;
+        next.push(f);
+      }
+      setPendingFiles(next);
+      e.target.value = "";
+    },
+    [pendingFiles],
+  );
+
+  const removePendingAt = useCallback((index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const canSend = Boolean(
+    input.trim() || (filesActive && pendingFiles.length > 0),
+  );
+
   const submitMessage = async () => {
+    if (!canSend || isBusy) return;
     const trimmed = input.trim();
-    if (!trimmed || isBusy) return;
+    const files =
+      filesActive && pendingFiles.length > 0 ? [...pendingFiles] : undefined;
     setInput("");
-    await onSend(trimmed);
+    setPendingFiles([]);
+    await onSend(trimmed, files);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -95,6 +147,16 @@ export const ChatInputBar = ({
         "md:relative md:z-auto md:pb-3 md:shadow-none",
       )}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={handleFileChange}
+      />
       <form
         onSubmit={handleSubmit}
         className="mx-auto max-w-3xl rounded-xl border border-border bg-card shadow-sm"
@@ -104,7 +166,30 @@ export const ChatInputBar = ({
           onStop={() => void onStop()}
           isStreaming={status === "streaming"}
           disableClear={disableClear}
+          onAttachClick={handleAttachClick}
+          attachDisabled={attachDisabled}
+          attachTitle={attachTitle}
         />
+        {filesActive && pendingFiles.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 border-t border-border/60 px-2 py-2">
+            {pendingFiles.map((f, i) => (
+              <div
+                key={`${f.name}-${i}-${f.size}`}
+                className="group relative inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 py-1 pl-2 pr-7 text-[11px] text-foreground"
+              >
+                <span className="max-w-[140px] truncate">{f.name}</span>
+                <button
+                  type="button"
+                  className="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={`Remove ${f.name}`}
+                  onClick={() => removePendingAt(i)}
+                >
+                  <X className="size-3" aria-hidden />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="flex items-end gap-2 px-2 pb-2">
           <textarea
             ref={textareaRef}
@@ -130,7 +215,7 @@ export const ChatInputBar = ({
               type="submit"
               size="icon-sm"
               variant="default"
-              disabled={isBusy || !input.trim()}
+              disabled={isBusy || !canSend}
               aria-label="Send message"
             >
               <ArrowUp className="size-4" aria-hidden />

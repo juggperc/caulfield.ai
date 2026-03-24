@@ -457,17 +457,31 @@ const ChatShellInner = ({
       },
     });
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, files?: File[]) => {
     clearError();
-    if (persistServerHistory && convId && messages.length === 0) {
-      const nextTitle = buildSmartChatTitleFromText(text);
+    const trimmed = text.trim();
+    const titleSource = trimmed || (files?.length ? "Image message" : "");
+    if (persistServerHistory && convId && messages.length === 0 && titleSource) {
+      const nextTitle = buildSmartChatTitleFromText(titleSource);
       window.dispatchEvent(
         new CustomEvent("caulfield:conversations-changed", {
           detail: { id: convId, title: nextTitle },
         }),
       );
     }
-    await sendMessage({ text });
+    if (files?.length) {
+      const dt = new DataTransfer();
+      for (const f of files) {
+        dt.items.add(f);
+      }
+      if (trimmed) {
+        await sendMessage({ text: trimmed, files: dt.files });
+      } else {
+        await sendMessage({ files: dt.files });
+      }
+      return;
+    }
+    await sendMessage({ text: trimmed });
   };
 
   const handleClear = () => {

@@ -128,16 +128,17 @@ When **`OPENROUTER_API_KEY`** is set, **`/api/chat`** and **`/api/research`** us
 **Quotas:** 5 free chat/research requests per account, then **`/api/billing/checkout`** (Polar) for the paid tier (100 requests per billing period — enforced in code; align your Polar product to **$20/mo**).
 
 1. Run **`npm run db:push`** against your Postgres after the database URL is configured (see **Vercel + Supabase** below).
-2. Set **`AUTH_SECRET`**, **`AUTH_URL`** (production), and deploy **`/api/webhooks/polar`** URL in Polar (using **Standard Webhooks** format with `v1` timestamped signatures). Set **`POLAR_WEBHOOK_SECRET`** to your endpoint secret (`whsec_...`).
-3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; checkout appends **`metadata[userId]`** for the webhook to attach subscriptions to users.
-4. **Rate Limiting**: Basic in-memory IP rate limiting protects the chat and research endpoints.
+2. Set **`AUTH_SECRET`**, **`AUTH_URL`** (production), and register **`https://<your-domain>/api/webhooks/polar`** in Polar (delivery format **Raw**, **Standard Webhooks** signatures). Set **`POLAR_WEBHOOK_SECRET`** to the endpoint secret from Polar (`whsec_...`). In production, the app **rejects** webhook calls when the database is configured but this secret is missing.
+3. Set **`POLAR_CHECKOUT_URL`** to your Polar product checkout link; **`GET /api/billing/checkout`** appends **`customer_email`** and **`metadata[userId]`** so webhooks can attach subscriptions to accounts. Set the Polar checkout **success URL** to your site root (e.g. **`https://<your-domain>/`**).
+4. Optional: **`OPENROUTER_LABEL_THINKING`** / **`OPENROUTER_LABEL_FREE`** override chat mode names in the workspace UI; otherwise labels are derived from **`OPENROUTER_MODEL_THINKING`** / **`OPENROUTER_MODEL_FREE`** (see [`.env.example`](./.env.example)).
+5. **Rate Limiting**: Basic in-memory IP rate limiting protects the chat and research endpoints.
 
 ### Vercel + Supabase (free tier)
 
 In the Vercel dashboard, add the **Supabase** integration (or paste env vars from Supabase). The app reads, in order:
 
 - **Runtime:** `DATABASE_URL`, then **`POSTGRES_URL`** (pooled — what Vercel/Supabase usually injects), then `SUPABASE_DATABASE_URL`.
-- **Migrations (`npm run db:push`):** `DATABASE_URL`, then **`POSTGRES_URL_NON_POOLING`** (direct session), then `POSTGRES_URL`.
+- **Migrations (`npm run db:push`):** prefers **`POSTGRES_URL_NON_POOLING`** or **`DRIZZLE_DATABASE_URL`** (direct Postgres), then `DATABASE_URL`, then `POSTGRES_URL`. Avoid transaction pooler URLs for push — they often hang on introspection.
 
 Transaction poolers require **disabled prepared statements**; the DB client detects Supabase pooler URLs (`:6543`, `pooler.supabase.com`, etc.) automatically. Override with **`DATABASE_PREPARE_STATEMENTS=1`** or **`0`** if needed.
 
@@ -167,7 +168,7 @@ If **`OPENROUTER_API_KEY`** is unset, behavior matches the original app: open **
 | `npm run build` | Production build |
 | `npm run start` | Run production server |
 | `npm run lint` | ESLint |
-| `npm run db:push` | Apply Drizzle schema to Postgres (`DATABASE_URL`) |
+| `npm run db:push` | Apply Drizzle schema to Postgres (reads `.env` then `.env.local` for `DATABASE_URL` / `POSTGRES_URL`, same as Next) |
 | `npm run db:studio` | Open Drizzle Studio |
 
 ---

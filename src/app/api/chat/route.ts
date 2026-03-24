@@ -42,6 +42,9 @@ import { z } from "zod";
 
 export const maxDuration = 120;
 
+/** Guardrail for multimodal / pasted data URLs in message history. */
+const MAX_MESSAGES_JSON_CHARS = 12_000_000;
+
 const NoteSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -255,6 +258,16 @@ export async function POST(req: Request) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const messagesJson = JSON.stringify(rawMessages);
+  if (messagesJson.length > MAX_MESSAGES_JSON_CHARS) {
+    return new Response(
+      JSON.stringify({
+        error: "Messages payload too large. Remove old images or start a new chat.",
+      }),
+      { status: 413, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const quotaEnforced = hosted && isDbConfigured();

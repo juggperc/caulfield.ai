@@ -17,12 +17,14 @@ export const resolveRuntimeDatabaseUrl = (): string | undefined =>
   trim(process.env.SUPABASE_DATABASE_URL);
 
 /**
- * Direct / session URL for migrations (`drizzle-kit push`). Prefer non-pooling
- * when Vercel + Supabase provides it so DDL is reliable.
+ * Direct / session URL for migrations (`drizzle-kit push`).
+ * Prefer **non-pooling** before `DATABASE_URL`: transaction poolers (PgBouncer
+ * :6543, `pooler.supabase.com`) often cause `db:push` to hang on introspection.
  */
 export const resolveMigrateDatabaseUrl = (): string | undefined =>
-  trim(process.env.DATABASE_URL) ??
+  trim(process.env.DRIZZLE_DATABASE_URL) ??
   trim(process.env.POSTGRES_URL_NON_POOLING) ??
+  trim(process.env.DATABASE_URL) ??
   trim(process.env.POSTGRES_URL) ??
   trim(process.env.SUPABASE_DATABASE_URL);
 

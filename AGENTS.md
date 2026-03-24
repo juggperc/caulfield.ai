@@ -6,16 +6,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Learned User Preferences
 
-- After finishing a substantive feature slice, often wants a git commit and push to `main` (or the current branch) when credentials and network allow.
+- After substantive features or fixes that affect production, often wants a git commit and push to `main` (or the current branch) so GitHub and Vercel pick up changes, when credentials and network allow.
 - Frequently asks for complete environment-variable lists for Vercel or production (names and purpose), not one-off hints.
 - Account direction for this product: username/password sign-in with bot protection (e.g. ALTCHA), not OAuth.
 - When confused about setup or ops, prefers very plain step-by-step instructions and expects the agent to run commands in the real environment rather than only describing them.
 - Local shell is Windows PowerShell; avoid bash-only command patterns that fail there (e.g. prefer `;` over `&&` where PowerShell rejects `&&`).
+- When optimizing for mobile, keep the desktop layout unchanged unless explicitly asked—scope layout deltas to below the `md` breakpoint and mirror existing desktop values at `md` and up.
+- Use Chat, Notes, and Docs as the visual reference when aligning other workspace tabs (Library, Marketplace, etc.).
+- In the hosted product flow, chat models and OpenRouter usage are server-controlled; users do not bring their own API keys in the default configuration.
 
 ## Learned Workspace Facts
 
-- Client UI that depends on randomness (e.g. procedural Logo backgrounds) must not diverge between SSR and hydration—avoid `Math.random()` during the server render; defer randomness until after hydration or use `useSyncExternalStore` so the server and first client paint match.
-- `drizzle-kit push` resolves the DB URL from the **process** environment (`DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`, `SUPABASE_DATABASE_URL`); `.env.local` alone is often **not** loaded—use a `.env` file in the project root or set the variable in the shell before `npm run db:push`.
+- Procedural Logo backgrounds and other client randomness must not diverge between SSR and hydration: avoid `Math.random()` on the server render; defer randomness until after hydration or use `useSyncExternalStore` so the server and first client paint match.
+- `drizzle-kit push` needs a non-empty Postgres URL in config; it loads `.env` / `.env.local` and should use a direct migrate URL—prefer **`POSTGRES_URL_NON_POOLING`** or **`DRIZZLE_DATABASE_URL`** over pooled `DATABASE_URL` so introspection does not hang on Supabase/Vercel poolers.
 - NextAuth.js v5 client `getProviders()` can return `null` while the server still exposes providers; same-origin `fetch("/api/auth/providers")` plus `Object.keys` on the JSON is a reliable way to list provider ids for UI.
 - The shared `SessionProvider` should pass `basePath="/api/auth"` so client-side auth requests target the App Router handler consistently.
 - The credentials provider is only registered when the server successfully constructs the Drizzle `db` client (a Postgres URL must be available at runtime, e.g. `POSTGRES_URL` from Vercel’s Supabase integration); otherwise the sign-in page shows no username/password provider.

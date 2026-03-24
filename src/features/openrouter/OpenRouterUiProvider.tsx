@@ -1,6 +1,7 @@
 "use client";
 
 import { readChatMode } from "@/features/ai-agent/storage";
+import type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 import { WorkspaceCommandPalette } from "@/features/openrouter/WorkspaceCommandPalette";
 import {
   createContext,
@@ -12,6 +13,8 @@ import {
   type ReactNode,
 } from "react";
 
+export type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
+
 type OpenRouterUiContextValue = {
   readonly openWorkspacePalette: () => void;
   readonly getChatModeShortLabel: () => string;
@@ -20,6 +23,7 @@ type OpenRouterUiContextValue = {
   readonly setResearchDialogOpen: (open: boolean) => void;
   readonly memoryDialogOpen: boolean;
   readonly setMemoryDialogOpen: (open: boolean) => void;
+  readonly chatModels: ChatModelsUiConfig;
 };
 
 const OpenRouterUiContext = createContext<OpenRouterUiContextValue | null>(null);
@@ -37,6 +41,31 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
   const [researchDialogOpen, setResearchDialogOpen] = useState(false);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [selectionEpoch, setSelectionEpoch] = useState(0);
+  const [chatModels, setChatModels] = useState<ChatModelsUiConfig>({
+    thinkingLabel: "Thinking",
+    freeLabel: "Free",
+    loaded: false,
+  });
+
+  useEffect(() => {
+    void fetch("/api/config", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (j: {
+          labels?: { thinking?: string; free?: string };
+        } | null) => {
+          if (!j?.labels) return;
+          const t = j.labels.thinking?.trim();
+          const f = j.labels.free?.trim();
+          setChatModels({
+            loaded: true,
+            thinkingLabel: t || "Thinking",
+            freeLabel: f || "Free",
+          });
+        },
+      )
+      .catch(() => {});
+  }, []);
 
   const openWorkspacePalette = useCallback(() => {
     setPaletteOpen(true);
@@ -48,8 +77,9 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
 
   const getChatModeShortLabel = useCallback((): string => {
     void selectionEpoch;
-    return readChatMode() === "free" ? "Free" : "Thinking";
-  }, [selectionEpoch]);
+    const mode = readChatMode();
+    return mode === "free" ? chatModels.freeLabel : chatModels.thinkingLabel;
+  }, [selectionEpoch, chatModels]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -73,6 +103,7 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
       setResearchDialogOpen,
       memoryDialogOpen,
       setMemoryDialogOpen,
+      chatModels,
     }),
     [
       openWorkspacePalette,
@@ -80,6 +111,7 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
       selectionEpoch,
       researchDialogOpen,
       memoryDialogOpen,
+      chatModels,
     ],
   );
 
@@ -92,6 +124,7 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
         onWorkspaceUpdated={onWorkspaceUpdated}
         onOpenResearch={() => setResearchDialogOpen(true)}
         onOpenMemory={() => setMemoryDialogOpen(true)}
+        chatModels={chatModels}
       />
     </OpenRouterUiContext.Provider>
   );

@@ -1,4 +1,5 @@
 import { applyPolarWebhookPayload } from "@/lib/billing/polar-webhook-sync";
+import { isDbConfigured } from "@/lib/db";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
@@ -11,6 +12,20 @@ import { NextResponse } from "next/server";
  */
 export const POST = async (req: Request) => {
   const secret = process.env.POLAR_WEBHOOK_SECRET?.trim();
+  if (
+    process.env.NODE_ENV === "production" &&
+    isDbConfigured() &&
+    !secret
+  ) {
+    console.error(
+      "[polar-webhook] POLAR_WEBHOOK_SECRET is required in production when the database is configured",
+    );
+    return NextResponse.json(
+      { error: "Webhook endpoint not configured" },
+      { status: 503 },
+    );
+  }
+
   const raw = await req.text();
 
   if (secret) {

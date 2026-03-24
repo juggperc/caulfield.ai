@@ -1,4 +1,5 @@
 import { isDatabaseUrlConfigured } from "@/lib/db/database-url";
+import { resolveChatModeLabels } from "@/lib/openrouter/model-display";
 import { getEmbeddingModelId, getThinkingModelId } from "@/lib/openrouter/server-models";
 import { NextResponse } from "next/server";
 
@@ -17,16 +18,24 @@ export const GET = () => {
   const openRouterConfigured = Boolean(process.env.OPENROUTER_API_KEY?.trim());
   const credentialAuthConfigured = isCredentialAuthConfigured();
   const databaseConfigured = isDatabaseUrlConfigured();
+  const {
+    thinkingModelId,
+    freeModelId,
+    thinkingLabel,
+    freeLabel,
+  } = resolveChatModeLabels(process.env);
 
   return NextResponse.json({
     openRouterConfigured,
     /** @deprecated Use openRouterConfigured */
     hostedOpenRouter: openRouterConfigured,
     chatModes: ["thinking", "free"] as const,
-    /** Display hints only; real routing is server env. */
+    thinkingModelId,
+    freeModelId,
+    /** Display names aligned with server routing (`OPENROUTER_MODEL_*`, optional `OPENROUTER_LABEL_*`). */
     labels: {
-      thinking: "Grok 4.1 Fast",
-      free: "Nemotron Free",
+      thinking: thinkingLabel,
+      free: freeLabel,
     },
     embeddingModelConfigured: Boolean(getEmbeddingModelId()),
     defaultModel: getThinkingModelId(),
@@ -36,5 +45,6 @@ export const GET = () => {
     authProvidersConfigured: credentialAuthConfigured,
     altchaDevBypass: isDev && process.env.ALTCHA_DEV_BYPASS === "1",
     databaseConfigured,
+    billingCheckoutConfigured: Boolean(process.env.POLAR_CHECKOUT_URL?.trim()),
   });
 };

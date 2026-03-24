@@ -87,4 +87,32 @@ describe("parsePolarWebhookPayload", () => {
       currentPeriodEnd: new Date("2024-12-31T23:59:59Z"),
     });
   });
+
+  it("reads userId from nested subscription + customer metadata", () => {
+    const payload = {
+      type: "subscription.updated",
+      data: {
+        subscription: {
+          id: "sub_nested",
+          customer_id: "cus_nested",
+          status: "active",
+          current_period_end: "2025-01-15T00:00:00Z",
+        },
+        customer: {
+          metadata: {
+            userId: "user_nested",
+          },
+        },
+      },
+    };
+
+    const result = parsePolarWebhookPayload(payload);
+    expect(result).toEqual({
+      userId: "user_nested",
+      polarCustomerId: "cus_nested",
+      polarSubscriptionId: "sub_nested",
+      status: "active",
+      currentPeriodEnd: new Date("2025-01-15T00:00:00Z"),
+    });
+  });
 });

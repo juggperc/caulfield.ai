@@ -25,6 +25,7 @@ import {
   writeChatMode,
   type StoredChatMode,
 } from "@/features/ai-agent/storage";
+import type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 import { cn } from "@/lib/utils";
 import { Brain, Check, Microscope, Search, Sparkles, Zap } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -35,6 +36,7 @@ type PaletteProps = {
   readonly onWorkspaceUpdated: () => void;
   readonly onOpenResearch: () => void;
   readonly onOpenMemory: () => void;
+  readonly chatModels: ChatModelsUiConfig;
 };
 
 export const WorkspaceCommandPalette = ({
@@ -43,6 +45,7 @@ export const WorkspaceCommandPalette = ({
   onWorkspaceUpdated,
   onOpenResearch,
   onOpenMemory,
+  chatModels,
 }: PaletteProps) => {
   const [, setTick] = useState(0);
   const refreshLocal = useCallback(() => setTick((n) => n + 1), []);
@@ -114,15 +117,17 @@ export const WorkspaceCommandPalette = ({
             <CommandList>
               <CommandGroup heading="Mode">
                 <CommandItem
-                  value="thinking grok fast"
+                  value={`thinking ${chatModels.thinkingLabel}`}
                   onSelect={() => handleMode("thinking")}
                   className="gap-2"
                 >
                   <Sparkles className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground">Thinking</div>
+                    <div className="font-medium text-foreground">
+                      {chatModels.thinkingLabel}
+                    </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Grok 4.1 Fast · uses quota
+                      Uses quota · supports images in chat
                     </div>
                   </div>
                   <Check
@@ -134,15 +139,17 @@ export const WorkspaceCommandPalette = ({
                   />
                 </CommandItem>
                 <CommandItem
-                  value="free nemotron"
+                  value={`free ${chatModels.freeLabel}`}
                   onSelect={() => handleMode("free")}
                   className="gap-2"
                 >
                   <Zap className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground">Free</div>
+                    <div className="font-medium text-foreground">
+                      {chatModels.freeLabel}
+                    </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Nemotron · no quota · free tier may log prompts
+                      No quota · free tier may log prompts
                     </div>
                   </div>
                   <Check
@@ -198,7 +205,7 @@ export const WorkspaceCommandPalette = ({
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-foreground">Deep Research</div>
                     <div className="text-[11px] text-muted-foreground">
-                      Run agent · Thinking model
+                      Run agent · {chatModels.thinkingLabel}
                     </div>
                   </div>
                 </CommandItem>

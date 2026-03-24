@@ -4,7 +4,7 @@ import type { UIMessage } from "ai";
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
-import { getMessageText } from "./message-utils";
+import { UserMessageBody } from "./UserMessageBody";
 
 type MessageFeedProps = {
   readonly messages: UIMessage[];
@@ -63,7 +63,6 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
         ) : null}
 
         {messages.map((message) => {
-          const text = getMessageText(message);
           const isUser = message.role === "user";
 
           return (
@@ -87,7 +86,7 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
                 }
               >
                 {isUser ? (
-                  <span className="whitespace-pre-wrap">{text}</span>
+                  <UserMessageBody message={message} />
                 ) : (
                   <AssistantMessageBody message={message} />
                 )}

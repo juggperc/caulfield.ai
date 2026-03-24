@@ -13,6 +13,9 @@ export type PolarBillingUpsert = {
  * Parse a Polar-style webhook JSON body (or compatible test payload).
  * Mirrors branching in the production webhook handler.
  */
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null;
+
 export const parsePolarWebhookPayload = (
   payload: unknown,
 ): PolarBillingUpsert | null => {
@@ -20,47 +23,85 @@ export const parsePolarWebhookPayload = (
   const type = typeof obj.type === "string" ? obj.type : "";
   const data = (obj.data ?? obj.payload ?? obj) as Record<string, unknown>;
 
-  const metadata = data.metadata as Record<string, unknown> | undefined;
+  const subscription = isRecord(data.subscription) ? data.subscription : null;
+  const customer = isRecord(data.customer) ? data.customer : null;
+
+  const merged: Record<string, unknown> = subscription
+    ? { ...data, ...subscription }
+    : { ...data };
+
+  const metadataFromMerged = isRecord(merged.metadata)
+    ? merged.metadata
+    : undefined;
+  const metadataFromData = isRecord(data.metadata) ? data.metadata : undefined;
+  const custMeta = customer?.metadata;
+  const metadataFromCustomer = isRecord(custMeta) ? custMeta : undefined;
+
+  const metadata =
+    metadataFromMerged ?? metadataFromData ?? metadataFromCustomer;
+
   const userId =
     typeof metadata?.userId === "string"
       ? metadata.userId
-      : typeof data.user_id === "string"
-        ? data.user_id
-        : null;
+      : typeof merged.user_id === "string"
+        ? merged.user_id
+        : typeof data.user_id === "string"
+          ? data.user_id
+          : null;
 
   const customerId =
-    typeof data.customer_id === "string"
-      ? data.customer_id
-      : typeof data.customerId === "string"
-        ? data.customerId
-        : null;
+    typeof merged.customer_id === "string"
+      ? merged.customer_id
+      : typeof merged.customerId === "string"
+        ? merged.customerId
+        : typeof data.customer_id === "string"
+          ? data.customer_id
+          : typeof data.customerId === "string"
+            ? data.customerId
+            : typeof customer?.id === "string"
+              ? customer.id
+              : null;
 
   const subscriptionId =
-    typeof data.subscription_id === "string"
-      ? data.subscription_id
-      : typeof data.id === "string"
-        ? data.id
-        : null;
+    typeof merged.subscription_id === "string"
+      ? merged.subscription_id
+      : typeof merged.id === "string"
+        ? merged.id
+        : typeof data.subscription_id === "string"
+          ? data.subscription_id
+          : typeof data.id === "string"
+            ? data.id
+            : subscription && typeof subscription.id === "string"
+              ? subscription.id
+              : null;
 
   let periodEnd: Date | null = null;
   const pe =
-    data.current_period_end ?? data.currentPeriodEnd ?? data.ends_at;
+    merged.current_period_end ??
+    merged.currentPeriodEnd ??
+    merged.ends_at ??
+    data.current_period_end ??
+    data.currentPeriodEnd ??
+    data.ends_at;
   if (typeof pe === "string") {
     periodEnd = new Date(pe);
   } else if (typeof pe === "number") {
     periodEnd = new Date(pe * 1000);
   }
 
+  const statusVal =
+    merged.status ?? data.status ?? subscription?.status ?? type;
+
   const active =
     type.includes("active") ||
     type.includes("created") ||
-    data.status === "active";
+    statusVal === "active";
 
   const inactive =
     type.includes("canceled") ||
     type.includes("cancelled") ||
     type.includes("revoked") ||
-    data.status === "canceled";
+    statusVal === "canceled";
 
   if (!userId || !(active || inactive || customerId)) {
     return null;
