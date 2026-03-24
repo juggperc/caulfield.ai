@@ -1,20 +1,14 @@
-import { verifySolution } from "altcha-lib";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { parsePassword, parseUsername } from "@/lib/auth/username";
-import {
-  getAltchaHmacKey,
-  shouldBypassAltchaVerificationInDev,
-} from "@/lib/altcha/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
 const bodySchema = z.object({
   username: z.string(),
   password: z.string(),
-  altcha: z.string(),
 });
 
 const isUniqueViolation = (err: unknown): boolean => {
@@ -52,41 +46,7 @@ export const POST = async (req: Request) => {
     );
   }
 
-  const { username: rawUser, password: rawPass, altcha: altchaPayload } =
-    parsedBody.data;
-
-  const hmacKey = getAltchaHmacKey();
-  const bypass = shouldBypassAltchaVerificationInDev();
-  if (!bypass) {
-    if (!hmacKey) {
-      return NextResponse.json(
-        {
-          error: "Sign-up is temporarily unavailable.",
-          code: "ALTCHA_NOT_CONFIGURED",
-        },
-        { status: 503 },
-      );
-    }
-    if (!altchaPayload) {
-      return NextResponse.json(
-        {
-          error: "Complete the verification challenge.",
-          code: "ALTCHA_REQUIRED",
-        },
-        { status: 400 },
-      );
-    }
-    const altchaOk = await verifySolution(altchaPayload, hmacKey);
-    if (!altchaOk) {
-      return NextResponse.json(
-        {
-          error: "Verification failed. Try again.",
-          code: "ALTCHA_FAILED",
-        },
-        { status: 400 },
-      );
-    }
-  }
+  const { username: rawUser, password: rawPass } = parsedBody.data;
 
   const u = parseUsername(rawUser);
   if (!u.ok) {

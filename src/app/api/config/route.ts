@@ -2,14 +2,10 @@ import { isDatabaseUrlConfigured } from "@/lib/db/database-url";
 import { getEmbeddingModelId, getThinkingModelId } from "@/lib/openrouter/server-models";
 import { NextResponse } from "next/server";
 
-const isDev = process.env.NODE_ENV === "development";
-
 const isCredentialAuthConfigured = (): boolean => {
   const hasSecret = Boolean(process.env.AUTH_SECRET?.trim());
   const dbOk = isDatabaseUrlConfigured();
-  const hasAltchaKey = Boolean(process.env.ALTCHA_HMAC_KEY?.trim());
-  const bypass = isDev && process.env.ALTCHA_DEV_BYPASS === "1";
-  return Boolean(hasSecret && dbOk && (hasAltchaKey || bypass));
+  return Boolean(hasSecret && dbOk);
 };
 
 /** Safe, non-secret flags for the client. */
@@ -34,7 +30,6 @@ export const GET = () => {
     credentialAuthConfigured,
     /** @deprecated Use credentialAuthConfigured */
     authProvidersConfigured: credentialAuthConfigured,
-    altchaDevBypass: isDev && process.env.ALTCHA_DEV_BYPASS === "1",
     databaseConfigured,
   });
 };

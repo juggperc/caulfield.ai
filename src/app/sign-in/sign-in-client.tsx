@@ -12,8 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -27,7 +25,6 @@ const safeCallbackUrl = (raw: string | null): string => {
 type AppConfigJson = {
   credentialAuthConfigured?: boolean;
   authProvidersConfigured?: boolean;
-  altchaDevBypass?: boolean;
   databaseConfigured?: boolean;
 };
 
@@ -40,7 +37,6 @@ export const SignInClient = () => {
   const [credentialAuthConfigured, setCredentialAuthConfigured] = useState<
     boolean | null
   >(null);
-  const [altchaDevBypass, setAltchaDevBypass] = useState(false);
   const [databaseConfigured, setDatabaseConfigured] = useState<boolean | null>(
     null,
   );
@@ -48,25 +44,8 @@ export const SignInClient = () => {
   const [panel, setPanel] = useState<"signin" | "register">("signin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [altchaPayload, setAltchaPayload] = useState<string | null>(null);
-  const [altchaKey, setAltchaKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [altchaScriptReady, setAltchaScriptReady] = useState(false);
-  const altchaHostRef = useRef<HTMLElement | null>(null);
-
-  const getAltchaDomPayload = useCallback(() => {
-    const widget = altchaHostRef.current as
-      | (HTMLElement & { shadowRoot?: ShadowRoot | null })
-      | null;
-    const hiddenInput =
-      (widget?.shadowRoot?.querySelector("input[type='hidden']") as
-        | HTMLInputElement
-        | null) ??
-      (widget?.querySelector("input[type='hidden']") as HTMLInputElement | null);
-    const payload = hiddenInput?.value?.trim();
-    return payload ? payload : null;
-  }, []);
 
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
   useEffect(() => {
@@ -116,7 +95,6 @@ export const SignInClient = () => {
         const cred =
           j.credentialAuthConfigured ?? j.authProvidersConfigured ?? false;
         setCredentialAuthConfigured(Boolean(cred));
-        setAltchaDevBypass(Boolean(j.altchaDevBypass));
         setDatabaseConfigured(Boolean(j.databaseConfigured));
       })
       .catch(() => {
@@ -131,108 +109,22 @@ export const SignInClient = () => {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        await import("altcha");
-        if (!cancelled) setAltchaScriptReady(true);
-      } catch {
-        if (!cancelled) setLoadError("Could not load ALTCHA widget.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const resetAltcha = useCallback(() => {
-    setAltchaPayload(null);
-    setAltchaKey((k) => k + 1);
-  }, []);
-
-  useEffect(() => {
     setFormError(null);
-    resetAltcha();
-  }, [panel, resetAltcha]);
+  }, [panel]);
 
   const hasCredentialsProvider = providerIds.includes("credentials");
   const hasDevProvider = providerIds.includes("dev");
-  const requireAltcha = !altchaDevBypass;
 
   const handleDevSignIn = useCallback(() => {
     void signIn("dev", { callbackUrl, redirect: true });
   }, [callbackUrl]);
 
-  /** ALTCHA may verify before a paint; useLayoutEffect + `verified` avoids missing payload vs. relying on statechange alone. */
-  useLayoutEffect(() => {
-    const el = altchaHostRef.current;
-    if (!el || altchaDevBypass || !altchaScriptReady) return;
-
-    const handleStateChange = (ev: Event) => {
-      const ce = ev as CustomEvent<{ state?: string; payload?: string }>;
-      const { state, payload } = ce.detail ?? {};
-      if (state === "verified" && typeof payload === "string" && payload) {
-        setAltchaPayload(payload);
-      }
-      if (state === "error" || state === "expired") {
-        setAltchaPayload(null);
-      }
-    };
-
-    const handleVerified = (ev: Event) => {
-      const ce = ev as CustomEvent<{ payload?: string }>;
-      const payload = ce.detail?.payload;
-      if (typeof payload === "string" && payload) {
-        setAltchaPayload(payload);
-      }
-    };
-
-    el.addEventListener("statechange", handleStateChange);
-    el.addEventListener("verified", handleVerified);
-
-    const initialPayload = getAltchaDomPayload();
-    const widgetState =
-      typeof (
-        el as HTMLElement & {
-          getState?: () => string;
-        }
-      ).getState === "function"
-        ? (
-            el as HTMLElement & {
-              getState: () => string;
-            }
-          ).getState()
-        : null;
-    if (widgetState === "verified" && initialPayload) {
-      setAltchaPayload(initialPayload);
-    }
-
-    return () => {
-      el.removeEventListener("statechange", handleStateChange);
-      el.removeEventListener("verified", handleVerified);
-    };
-  }, [
-    altchaDevBypass,
-    altchaKey,
-    altchaScriptReady,
-    getAltchaDomPayload,
-  ]);
-
   const handleSubmitSignIn = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setFormError(null);
-      const effectiveAltchaPayload =
-        altchaDevBypass ? "" : (altchaPayload ?? getAltchaDomPayload() ?? "");
-      if (!altchaPayload && effectiveAltchaPayload) {
-        setAltchaPayload(effectiveAltchaPayload);
-      }
       if (!hasCredentialsProvider) {
         setFormError("Username/password sign-in is not available.");
-        return;
-      }
-      if (requireAltcha && !effectiveAltchaPayload) {
-        setFormError("Complete the verification challenge first.");
         return;
       }
       setBusy(true);
@@ -240,13 +132,11 @@ export const SignInClient = () => {
         const res = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: effectiveAltchaPayload,
           callbackUrl,
           redirect: false,
         });
         if (res?.error) {
           setFormError("Invalid username or password.");
-          resetAltcha();
           return;
         }
         if (res?.ok) {
@@ -258,14 +148,9 @@ export const SignInClient = () => {
       }
     },
     [
-      altchaDevBypass,
-      altchaPayload,
       callbackUrl,
-      getAltchaDomPayload,
       hasCredentialsProvider,
       password,
-      requireAltcha,
-      resetAltcha,
       router,
       username,
     ],
@@ -275,15 +160,6 @@ export const SignInClient = () => {
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       setFormError(null);
-      const effectiveAltchaPayload =
-        altchaDevBypass ? "" : (altchaPayload ?? getAltchaDomPayload() ?? "");
-      if (!altchaPayload && effectiveAltchaPayload) {
-        setAltchaPayload(effectiveAltchaPayload);
-      }
-      if (requireAltcha && !effectiveAltchaPayload) {
-        setFormError("Complete the verification challenge first.");
-        return;
-      }
       setBusy(true);
       try {
         const res = await fetch("/api/auth/register", {
@@ -292,7 +168,6 @@ export const SignInClient = () => {
           body: JSON.stringify({
             username: username.trim(),
             password,
-            altcha: effectiveAltchaPayload,
           }),
         });
         if (!res.ok) {
@@ -306,20 +181,17 @@ export const SignInClient = () => {
             /* keep default */
           }
           setFormError(message);
-          resetAltcha();
           return;
         }
         const signRes = await signIn("credentials", {
           username: username.trim(),
           password,
-          altcha: effectiveAltchaPayload,
           callbackUrl,
           redirect: false,
         });
         if (signRes?.error) {
           setFormError("Account created. Sign in with your new credentials.");
           setPanel("signin");
-          resetAltcha();
           return;
         }
         if (signRes?.ok) {
@@ -328,19 +200,13 @@ export const SignInClient = () => {
         }
       } catch {
         setFormError("Something went wrong. Try again.");
-        resetAltcha();
       } finally {
         setBusy(false);
       }
     },
     [
-      altchaDevBypass,
-      altchaPayload,
       callbackUrl,
-      getAltchaDomPayload,
       password,
-      requireAltcha,
-      resetAltcha,
       router,
       username,
     ],
@@ -387,16 +253,8 @@ export const SignInClient = () => {
                 ,{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">
                   AUTH_SECRET
-                </code>
-                , and{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  ALTCHA_HMAC_KEY
                 </code>{" "}
-                (or{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  ALTCHA_DEV_BYPASS=1
-                </code>{" "}
-                in development). See README.
+                and redeploy. See README.
               </p>
             ) : null}
 
@@ -500,32 +358,6 @@ export const SignInClient = () => {
                     />
                   </div>
 
-                  {altchaDevBypass ? (
-                    <p className="text-xs text-muted-foreground">
-                      ALTCHA verification is bypassed in this development
-                      environment.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium text-foreground">
-                        Verification
-                      </span>
-                      {altchaScriptReady ? (
-                        <div key={altchaKey} className="block w-full">
-                          <altcha-widget
-                            ref={altchaHostRef}
-                            challengeurl="/api/altcha/challenge"
-                            credentials="include"
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Loading verification…
-                        </p>
-                      )}
-                    </div>
-                  )}
-
                   {formError ? (
                     <p className="text-sm text-destructive" role="alert">
                       {formError}
@@ -576,10 +408,6 @@ export const SignInClient = () => {
                     <code className="rounded bg-muted px-1 py-0.5 text-xs">
                       AUTH_SECRET
                     </code>
-                    , and{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      ALTCHA_HMAC_KEY
-                    </code>{" "}
                     on the host, redeploy, and check server logs.
                   </p>
                 )}
