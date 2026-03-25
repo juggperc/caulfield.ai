@@ -210,7 +210,7 @@ export const ChatInputBar = ({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Message…"
-            className="max-h-[200px] min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2.5 text-[0.9375rem] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+            className="max-h-[200px] min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
             aria-label="Message input"
           />
           <div className="flex shrink-0 items-center gap-0.5 pb-1.5">
