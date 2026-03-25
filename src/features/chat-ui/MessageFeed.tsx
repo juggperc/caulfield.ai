@@ -1,7 +1,6 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { motion } from "framer-motion";
 import { memo, useEffect, useRef, useState } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
 import { UserMessageBody } from "./UserMessageBody";
@@ -25,12 +24,6 @@ const parseApiError = (
   return { type: "generic", message: msg };
 };
 
-const messageRowSpring = {
-  type: "spring" as const,
-  stiffness: 500,
-  damping: 30,
-};
-
 type MessageRowProps = {
   readonly message: UIMessage;
 };
@@ -38,11 +31,12 @@ type MessageRowProps = {
 const MessageRow = memo(({ message }: MessageRowProps) => {
   const isUser = message.role === "user";
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={messageRowSpring}
-      className={isUser ? "flex justify-end" : "flex justify-start"}
+    <div
+      className={[
+        isUser ? "flex justify-end" : "flex justify-start",
+        "animate-in fade-in duration-200",
+      ].join(" ")}
+      style={{ overflowAnchor: "none" }}
     >
       <div
         className={
@@ -57,16 +51,18 @@ const MessageRow = memo(({ message }: MessageRowProps) => {
           <AssistantMessageBody message={message} />
         )}
       </div>
-    </motion.div>
+    </div>
   );
 });
 MessageRow.displayName = "MessageRow";
 
 export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const anchorRef = useRef<HTMLDivElement>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const isStreamingRef = useRef(false);
+
+  isStreamingRef.current = status === "streaming" || status === "submitted";
 
   const isNearBottom = (): boolean => {
     const el = scrollRef.current;
@@ -80,7 +76,8 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
     if (!el) return;
 
     const onScroll = () => {
-      setUserScrolledUp(!isNearBottom());
+      const nearBottom = isNearBottom();
+      setUserScrolledUp(!nearBottom);
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -88,24 +85,28 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
   }, []);
 
   useEffect(() => {
-    if (userScrolledUp && status !== "streaming" && status !== "submitted") {
+    if (userScrolledUp && !isStreamingRef.current) {
       return;
     }
 
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
     }
 
-    scrollTimeoutRef.current = setTimeout(() => {
-      anchorRef.current?.scrollIntoView({ behavior: "instant", block: "end" });
-    }, 16);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
 
     return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [messages, status, userScrolledUp]);
+  }, [messages, userScrolledUp]);
 
   return (
     <div
@@ -113,7 +114,6 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
       className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 max-md:pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))] md:px-4"
       style={{ 
         overscrollBehavior: "contain",
-        WebkitOverflowScrolling: "touch",
       }}
       role="log"
       aria-live="polite"
@@ -131,8 +131,6 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
         {error ? (
           <ErrorBanner error={error} />
         ) : null}
-
-        <div ref={anchorRef} className="h-px flex-shrink-0" aria-hidden />
       </div>
     </div>
   );

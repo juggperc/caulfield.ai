@@ -20,39 +20,43 @@ export const WorkspaceLibrarySync = () => {
   useEffect(() => {
     const id = window.setTimeout(() => {
       void (async () => {
-        for (const note of notes) {
-          const body = `# ${note.title}\n\n${note.content}`;
-          const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
-          await upsertWorkspaceExport(
-            `note:${note.id}`,
-            `${sanitizeFilename(note.title)}.md`,
-            "text/markdown",
-            blob,
-          );
-        }
-        for (const doc of documents) {
-          const plain = tiptapJsonToPlainText(doc.contentJson);
-          const blob = new Blob([plain], { type: "text/markdown;charset=utf-8" });
-          await upsertWorkspaceExport(
-            `doc:${doc.id}`,
-            `${sanitizeFilename(doc.title)}.md`,
-            "text/markdown",
-            blob,
-          );
-        }
-        for (const sh of sheets) {
-          const lines = sh.rows.map((r) =>
-            r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-          );
-          const blob = new Blob([lines.join("\n")], {
-            type: "text/csv;charset=utf-8",
-          });
-          await upsertWorkspaceExport(
-            `sheet:${sh.id}`,
-            `${sanitizeFilename(sh.title)}.csv`,
-            "text/csv",
-            blob,
-          );
+        try {
+          for (const note of notes) {
+            const body = `# ${note.title}\n\n${note.content}`;
+            const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
+            await upsertWorkspaceExport(
+              `note:${note.id}`,
+              `${sanitizeFilename(note.title)}.md`,
+              "text/markdown",
+              blob,
+            );
+          }
+          for (const doc of documents) {
+            const plain = tiptapJsonToPlainText(doc.contentJson);
+            const blob = new Blob([plain], { type: "text/markdown;charset=utf-8" });
+            await upsertWorkspaceExport(
+              `doc:${doc.id}`,
+              `${sanitizeFilename(doc.title)}.md`,
+              "text/markdown",
+              blob,
+            );
+          }
+          for (const sh of sheets) {
+            const lines = sh.rows.map((r) =>
+              r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
+            );
+            const blob = new Blob([lines.join("\n")], {
+              type: "text/csv;charset=utf-8",
+            });
+            await upsertWorkspaceExport(
+              `sheet:${sh.id}`,
+              `${sanitizeFilename(sh.title)}.csv`,
+              "text/csv",
+              blob,
+            );
+          }
+        } catch (e) {
+          console.error("[WorkspaceLibrarySync] Export failed:", e);
         }
       })();
     }, 650);

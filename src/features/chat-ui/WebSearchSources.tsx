@@ -25,42 +25,45 @@ const faviconUrl = (pageUrl: string): string => {
 };
 
 const SourceRow = memo(
-  ({ source, index }: { readonly source: SearchSource; readonly index: number }) => (
-    <motion.a
-      href={source.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted/60"
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.2 }}
-    >
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-        {index + 1}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          {faviconUrl(source.url) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={faviconUrl(source.url)}
-              alt=""
-              width={14}
-              height={14}
-              className="size-3.5 shrink-0 rounded-sm"
-              loading="lazy"
-            />
-          ) : null}
-          <span className="truncate text-[13px] font-medium text-foreground group-hover:underline">
-            {source.title}
-          </span>
+  ({ source, index }: { readonly source: SearchSource; readonly index: number }) => {
+    const favicon = faviconUrl(source.url);
+    return (
+      <motion.a
+        href={source.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted/60"
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.04, duration: 0.2 }}
+      >
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+          {index + 1}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {favicon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={favicon}
+                alt=""
+                width={14}
+                height={14}
+                className="size-3.5 shrink-0 rounded-sm"
+                loading="lazy"
+              />
+            ) : null}
+            <span className="truncate text-[13px] font-medium text-foreground group-hover:underline">
+              {source.title}
+            </span>
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {source.snippet}
+          </p>
         </div>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {source.snippet}
-        </p>
-      </div>
-    </motion.a>
-  ),
+      </motion.a>
+    );
+  },
 );
 SourceRow.displayName = "SourceRow";
 

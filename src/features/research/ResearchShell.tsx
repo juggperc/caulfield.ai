@@ -31,8 +31,10 @@ export const ResearchShell = ({ embedded = false }: ResearchShellProps) => {
 
   useEffect(() => {
     void fetch("/api/config", { credentials: "include" })
-      .then((r) => r.json() as Promise<{ openRouterConfigured?: boolean }>)
-      .then((c) => setOpenRouterConfigured(Boolean(c.openRouterConfigured)))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (c) setOpenRouterConfigured(Boolean(c.openRouterConfigured));
+      })
       .catch(() => setOpenRouterConfigured(false));
   }, []);
 

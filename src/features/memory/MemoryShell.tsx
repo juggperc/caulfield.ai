@@ -4,7 +4,7 @@ import { useMemory } from "@/features/memory/memory-provider";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 type MemoryShellProps = {
   readonly embedded?: boolean;
@@ -16,6 +16,11 @@ export const MemoryShell = ({ embedded = false }: MemoryShellProps) => {
   const [draftBody, setDraftBody] = useState("");
   const [draftTags, setDraftTags] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => b.updatedAt - a.updatedAt),
+    [entries],
+  );
 
   const handleSaveNew = useCallback(() => {
     const title = draftTitle.trim();
@@ -167,16 +172,14 @@ export const MemoryShell = ({ embedded = false }: MemoryShellProps) => {
           Entries ({entries.length})
         </h2>
 
-        {entries.length === 0 ? (
+        {sortedEntries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing stored yet. Add entries manually or let the assistant use
             memory tools during chat.
           </p>
         ) : (
           <ul className="flex flex-col gap-3" aria-label="Memory entries">
-            {[...entries]
-              .sort((a, b) => b.updatedAt - a.updatedAt)
-              .map((e) => (
+            {sortedEntries.map((e) => (
                 <li
                   key={e.id}
                   className="rounded-lg border border-border bg-card p-3 text-sm shadow-sm"
