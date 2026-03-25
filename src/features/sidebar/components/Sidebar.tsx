@@ -29,6 +29,7 @@ import {
 import { useCallback, useEffect, useState, memo } from "react";
 import { Logo } from "./Logo";
 import { UserAvatarGlow } from "./UserAvatarGlow";
+import { MembershipCardDialog } from "./MembershipCardDialog";
 
 const SIDEBAR_WIDTH = "18rem";
 
@@ -65,6 +66,9 @@ export const Sidebar = memo(({
   );
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [membershipDialogOpen, setMembershipDialogOpen] = useState(false);
+
+  const tier = quota?.unlimited ? "unlimited" : quota?.subscribed ? "paid" : "free";
 
   useEffect(() => {
     void fetch("/api/config")
@@ -356,15 +360,18 @@ export const Sidebar = memo(({
       </nav>
 
       <div className="mt-auto shrink-0 space-y-2 border-t border-sidebar-border p-3">
-        <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
-          <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Account
-          </p>
-          {status === "loading" ? (
+        {status === "loading" ? (
+          <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
             <p className="text-xs text-muted-foreground">Loading…</p>
-          ) : user ? (
-            <>
-              <div className="flex items-start gap-3">
+          </div>
+        ) : user ? (
+          <>
+            <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
+              <button
+                type="button"
+                className="flex w-full items-start gap-3 text-left"
+                onClick={() => setMembershipDialogOpen(true)}
+              >
                 <UserAvatarGlow userId={user.id} label={displayName} />
                 <div className="min-w-0 flex-1 pt-0.5">
                   <p className="truncate text-sm font-semibold text-foreground">
@@ -380,7 +387,7 @@ export const Sidebar = memo(({
                     </p>
                   ) : null}
                 </div>
-              </div>
+              </button>
               {!displayQuota?.unlimited &&
               !displayQuota?.subscribed &&
               displayQuota &&
@@ -395,56 +402,60 @@ export const Sidebar = memo(({
                   Subscribe
                 </a>
               ) : null}
-              <div className="my-3 border-t border-border/60" />
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                  activePanel === "settings"
-                    ? "bg-sidebar-accent font-medium text-sidebar-foreground"
-                    : "text-foreground hover:bg-sidebar-accent/70",
-                )}
-                aria-current={activePanel === "settings" ? "page" : undefined}
-                onClick={() => onPanelChange("settings")}
-              >
-                <Settings className="size-4 shrink-0 opacity-70" aria-hidden />
-                Settings
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-sidebar-accent/70"
-                onClick={() => {
-                  onRequestClose();
-                  void signOut();
-                }}
-              >
-                <LogOut className="size-4 shrink-0 opacity-70" aria-hidden />
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Button
+            </div>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              className="w-full gap-2"
-              onClick={() => {
-                onRequestClose();
-                signIn();
-              }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
+                activePanel === "settings"
+                  ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+                  : "text-foreground hover:bg-sidebar-accent/70",
+              )}
+              aria-current={activePanel === "settings" ? "page" : undefined}
+              onClick={() => onPanelChange("settings")}
             >
-              <LogIn className="size-4" aria-hidden />
-              Sign in
-            </Button>
-          )}
-        </div>
+              <Settings className="size-4 shrink-0 opacity-70" aria-hidden />
+              Settings
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-sidebar-accent/70"
+              onClick={() => void signOut()}
+            >
+              <LogOut className="size-4 shrink-0 opacity-70" aria-hidden />
+              Sign out
+            </button>
 
-        <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
-          <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Appearance
-          </p>
-          <ThemeToggle variant="segmented" />
-        </div>
+            <MembershipCardDialog
+              open={membershipDialogOpen}
+              onOpenChange={setMembershipDialogOpen}
+              userId={user.id}
+              displayName={displayName}
+              tier={tier ?? "free"}
+            />
+          </>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={() => {
+              onRequestClose();
+              signIn();
+            }}
+          >
+            <LogIn className="size-4" aria-hidden />
+            Sign in
+          </Button>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
+        <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Appearance
+        </p>
+        <ThemeToggle variant="segmented" />
       </div>
     </aside>
   );
