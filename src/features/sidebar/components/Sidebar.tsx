@@ -26,7 +26,7 @@ import {
   MessageCircle,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { Logo } from "./Logo";
 import { UserAvatarGlow } from "./UserAvatarGlow";
 
@@ -48,7 +48,7 @@ type QuotaJson = {
 
 type PendingDelete = { id: string; title: string };
 
-export const Sidebar = ({
+export const Sidebar = memo(({
   activePanel,
   onPanelChange,
   mobileNavOpen,
@@ -448,6 +448,7 @@ export const Sidebar = ({
       </div>
     </aside>
   );
-};
+});
+Sidebar.displayName = "Sidebar";
 
 export const MAIN_OFFSET_CLASS = "pl-0 md:pl-72";

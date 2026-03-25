@@ -1,6 +1,8 @@
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/notes/constants";
 
-export type StoredChatMode = "thinking" | "free";
+export type StoredChatMode = "thinking" | "free" | "freeFast" | "max";
+
+const VALID_MODES: StoredChatMode[] = ["thinking", "free", "freeFast", "max"];
 
 const CHAT_MODE_KEY = "caulfield.chat.mode";
 
@@ -24,7 +26,7 @@ export const readChatMode = (): StoredChatMode => {
   if (typeof window === "undefined") return "thinking";
   try {
     const v = localStorage.getItem(CHAT_MODE_KEY)?.trim().toLowerCase();
-    if (v === "free" || v === "thinking") return v;
+    if (VALID_MODES.includes(v as StoredChatMode)) return v as StoredChatMode;
     const legacy =
       localStorage.getItem(STORAGE_KEYS.openRouterModel)?.trim() ?? "";
     const lower = legacy.toLowerCase();

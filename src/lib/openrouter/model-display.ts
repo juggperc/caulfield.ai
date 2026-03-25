@@ -13,35 +13,51 @@ export const shortLabelFromModelId = (modelId: string): string => {
   return last.replace(/:free$/i, "").replace(/-/g, " ") || "Model";
 };
 
-export const getChatModeModelIds = (): {
-  thinkingModelId: string;
-  freeModelId: string;
-} => ({
+export const getChatModeModelIds = () => ({
   thinkingModelId: getThinkingModelId(),
   freeModelId: resolveChatModelId("free"),
+  freeFastModelId: resolveChatModelId("freeFast"),
+  maxModelId: resolveChatModelId("max"),
 });
 
 export const resolveChatModeLabels = (env: NodeJS.ProcessEnv): {
   thinkingModelId: string;
   freeModelId: string;
+  freeFastModelId: string;
+  maxModelId: string;
   thinkingLabel: string;
   freeLabel: string;
+  freeFastLabel: string;
+  maxLabel: string;
 } => {
-  const { thinkingModelId, freeModelId } = getChatModeModelIds();
-  const thinkingLabel =
-    env.OPENROUTER_LABEL_THINKING?.trim() ||
-    shortLabelFromModelId(thinkingModelId);
-  const freeLabel =
-    env.OPENROUTER_LABEL_FREE?.trim() || shortLabelFromModelId(freeModelId);
+  const ids = getChatModeModelIds();
   return {
-    thinkingModelId,
-    freeModelId,
-    thinkingLabel,
-    freeLabel,
+    ...ids,
+    thinkingLabel:
+      env.OPENROUTER_LABEL_THINKING?.trim() ||
+      shortLabelFromModelId(ids.thinkingModelId),
+    freeLabel:
+      env.OPENROUTER_LABEL_FREE?.trim() ||
+      shortLabelFromModelId(ids.freeModelId),
+    freeFastLabel:
+      env.OPENROUTER_LABEL_FREEFAST?.trim() || "Free (Fast)",
+    maxLabel:
+      env.OPENROUTER_LABEL_MAX?.trim() || "Max",
   };
 };
 
 export const labelForChatMode = (
   mode: ChatMode,
-  labels: { thinkingLabel: string; freeLabel: string },
-): string => (mode === "free" ? labels.freeLabel : labels.thinkingLabel);
+  labels: { thinkingLabel: string; freeLabel: string; freeFastLabel: string; maxLabel: string },
+): string => {
+  switch (mode) {
+    case "free":
+      return labels.freeLabel;
+    case "freeFast":
+      return labels.freeFastLabel;
+    case "max":
+      return labels.maxLabel;
+    default:
+      return labels.thinkingLabel;
+  }
+};

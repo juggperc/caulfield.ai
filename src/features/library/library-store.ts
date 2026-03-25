@@ -1,5 +1,6 @@
 import { getAccountStorageScope } from "@/features/auth/storage-scope";
 import type { FileSpecPayload } from "@/features/documents/file-spec";
+import type { ImageSpecPayload } from "@/features/images/image-payload";
 import {
   idbDeleteItem,
   idbGetAllMeta,
@@ -173,4 +174,35 @@ export const getLibraryBlob = async (id: string): Promise<Blob | null> => {
   const items = await listLibraryItemsSorted();
   const meta = items.find((i) => i.id === id);
   return new Blob([buf], { type: meta?.mimeType ?? "application/octet-stream" });
+};
+
+export const addLibraryGeneratedImage = async (
+  dedupeKey: string,
+  payload: ImageSpecPayload,
+): Promise<LibraryItemMeta | null> => {
+  const existing = await findByDedupeKey(dedupeKey);
+  if (existing) return existing;
+
+  const db = await getDb();
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  const byteCharacters = atob(payload.base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const buffer = new Uint8Array(byteNumbers).buffer;
+
+  const meta: LibraryItemMeta = {
+    id,
+    source: "generated",
+    filename: payload.filename,
+    mimeType: "image/png",
+    createdAt: now,
+    updatedAt: now,
+    dedupeKey,
+  };
+
+  await idbPutMetaAndBlob(db, { ...meta }, buffer);
+  return meta;
 };

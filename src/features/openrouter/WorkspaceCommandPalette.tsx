@@ -32,7 +32,7 @@ import { PlaybooksManageDialog } from "@/features/playbooks/PlaybooksManageDialo
 import { readUserPlaybooks } from "@/features/playbooks/user-playbooks-storage";
 import type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 import { cn } from "@/lib/utils";
-import { Brain, Check, LayoutTemplate, Microscope, Search, Sparkles, Zap } from "lucide-react";
+import { Brain, Check, LayoutTemplate, Microscope, Rocket, Search, Sparkles, Zap } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 type PaletteProps = {
@@ -182,6 +182,50 @@ export const WorkspaceCommandPalette = ({
                     className={cn(
                       "size-4 shrink-0",
                       mode === "free" ? "opacity-100" : "opacity-0",
+                    )}
+                    aria-hidden
+                  />
+                </CommandItem>
+                <CommandItem
+                  value={`freefast ${chatModels.freeFastLabel}`}
+                  onSelect={() => handleMode("freeFast")}
+                  className="gap-2"
+                >
+                  <Zap className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-foreground">
+                      {chatModels.freeFastLabel}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      No quota · fastest free model
+                    </div>
+                  </div>
+                  <Check
+                    className={cn(
+                      "size-4 shrink-0",
+                      mode === "freeFast" ? "opacity-100" : "opacity-0",
+                    )}
+                    aria-hidden
+                  />
+                </CommandItem>
+                <CommandItem
+                  value={`max ${chatModels.maxLabel}`}
+                  onSelect={() => handleMode("max")}
+                  className="gap-2"
+                >
+                  <Rocket className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-foreground">
+                      {chatModels.maxLabel}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Uses quota · most capable model
+                    </div>
+                  </div>
+                  <Check
+                    className={cn(
+                      "size-4 shrink-0",
+                      mode === "max" ? "opacity-100" : "opacity-0",
                     )}
                     aria-hidden
                   />

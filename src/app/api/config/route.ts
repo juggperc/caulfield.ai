@@ -21,21 +21,29 @@ export const GET = () => {
   const {
     thinkingModelId,
     freeModelId,
+    freeFastModelId,
+    maxModelId,
     thinkingLabel,
     freeLabel,
+    freeFastLabel,
+    maxLabel,
   } = resolveChatModeLabels(process.env);
 
   return NextResponse.json({
     openRouterConfigured,
     /** @deprecated Use openRouterConfigured */
     hostedOpenRouter: openRouterConfigured,
-    chatModes: ["thinking", "free"] as const,
+    chatModes: ["thinking", "free", "freeFast", "max"] as const,
     thinkingModelId,
     freeModelId,
+    freeFastModelId,
+    maxModelId,
     /** Display names aligned with server routing (`OPENROUTER_MODEL_*`, optional `OPENROUTER_LABEL_*`). */
     labels: {
       thinking: thinkingLabel,
       free: freeLabel,
+      freeFast: freeFastLabel,
+      max: maxLabel,
     },
     embeddingModelConfigured: Boolean(getEmbeddingModelId()),
     defaultModel: getThinkingModelId(),

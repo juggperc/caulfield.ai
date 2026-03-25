@@ -13,6 +13,7 @@ import { createContext7Toolset } from "@/features/integrations/context7-tools";
 import { createExaSearchToolset } from "@/features/integrations/exa-tools";
 import { createGithubToolset } from "@/features/integrations/github-tools";
 import { createNativeSearchToolset } from "@/features/integrations/native-search-tools";
+import { createImageGenerationToolset } from "@/features/images/image-generation-tools";
 import { createDeepResearchChatTool } from "@/features/research/deep-research-chat-tool";
 import { createMemoryToolset } from "@/features/ai-agent/memory-tools";
 import { createNotesToolset } from "@/features/ai-agent/notes-tools";
@@ -368,6 +369,13 @@ export async function POST(req: Request) {
         })
       : {};
 
+  let imageTools = {};
+  try {
+    imageTools = createImageGenerationToolset().tools;
+  } catch {
+    // Image generation not available without API key
+  }
+
   const tools = isDocsMode
     ? {
         ...docsEditorTools,
@@ -380,6 +388,7 @@ export async function POST(req: Request) {
         ...noteTools,
         ...memoryTools,
         ...docCreationTools,
+        ...imageTools,
         ...workspaceReadToolset,
         ...deepResearchTools,
         ...nativeTools,

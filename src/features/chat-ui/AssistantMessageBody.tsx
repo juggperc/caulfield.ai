@@ -1,11 +1,13 @@
 "use client";
 
 import { isFileSpecOutput } from "@/features/documents/file-spec";
+import { isImageSpecOutput } from "@/features/images/image-payload";
 import type { UIMessage } from "ai";
 import { isToolUIPart } from "ai";
 import { motion } from "framer-motion";
 import { memo } from "react";
 import { GeneratedFileDownload } from "./GeneratedFileDownload";
+import { GeneratedImage } from "./GeneratedImage";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ToolErrorCallout } from "./ToolErrorCallout";
 import {
@@ -91,6 +93,19 @@ export const AssistantMessageBody = memo(
               return (
                 <GeneratedFileDownload
                   key={`file-${part.toolCallId ?? idx}`}
+                  payload={part.output}
+                  libraryDedupeKey={part.toolCallId}
+                />
+              );
+            }
+
+            if (
+              part.state === "output-available" &&
+              isImageSpecOutput(part.output)
+            ) {
+              return (
+                <GeneratedImage
+                  key={`img-${part.toolCallId ?? idx}`}
                   payload={part.output}
                   libraryDedupeKey={part.toolCallId}
                 />

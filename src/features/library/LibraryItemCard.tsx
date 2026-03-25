@@ -5,7 +5,7 @@ import { getLibraryBlob } from "@/features/library/library-store";
 import type { LibraryItemMeta } from "@/features/library/types";
 import { cn } from "@/lib/utils";
 import { Download, FileSpreadsheet, FileText, FileType2, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 
 type PreviewState =
   | { kind: "loading" }
@@ -56,7 +56,7 @@ type LibraryItemCardProps = {
   readonly onRemove: (id: string) => void;
 };
 
-export const LibraryItemCard = ({
+export const LibraryItemCard = memo(({
   item,
   formatRelative,
   onDownload,
@@ -197,4 +197,5 @@ export const LibraryItemCard = ({
       </div>
     </li>
   );
-};
+});
+LibraryItemCard.displayName = "LibraryItemCard";

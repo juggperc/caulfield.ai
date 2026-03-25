@@ -15,6 +15,8 @@ import {
 
 const CHAT_MODE_LABEL_THINKING = "Thinking";
 const CHAT_MODE_LABEL_FREE = "Free";
+const CHAT_MODE_LABEL_FREEFAST = "Free (Fast)";
+const CHAT_MODE_LABEL_MAX = "Max";
 
 export type { ChatModelsUiConfig } from "@/features/openrouter/chat-models-ui";
 
@@ -53,6 +55,8 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
   const [chatModels] = useState<ChatModelsUiConfig>({
     thinkingLabel: CHAT_MODE_LABEL_THINKING,
     freeLabel: CHAT_MODE_LABEL_FREE,
+    freeFastLabel: CHAT_MODE_LABEL_FREEFAST,
+    maxLabel: CHAT_MODE_LABEL_MAX,
     loaded: true,
   });
 
@@ -87,7 +91,16 @@ export const OpenRouterUiProvider = ({ children }: { readonly children: ReactNod
   const getChatModeShortLabel = useCallback((): string => {
     void selectionEpoch;
     const mode = readChatMode();
-    return mode === "free" ? CHAT_MODE_LABEL_FREE : CHAT_MODE_LABEL_THINKING;
+    switch (mode) {
+      case "free":
+        return CHAT_MODE_LABEL_FREE;
+      case "freeFast":
+        return CHAT_MODE_LABEL_FREEFAST;
+      case "max":
+        return CHAT_MODE_LABEL_MAX;
+      default:
+        return CHAT_MODE_LABEL_THINKING;
+    }
   }, [selectionEpoch]);
 
   useEffect(() => {
