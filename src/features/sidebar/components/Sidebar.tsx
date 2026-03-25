@@ -451,11 +451,8 @@ export const Sidebar = memo(({
         )}
       </div>
 
-      <div className="rounded-xl border border-border/80 bg-card/40 p-3 dark:bg-card/25">
-        <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Appearance
-        </p>
-        <ThemeToggle variant="segmented" />
+      <div className="shrink-0 border-t border-sidebar-border px-3 py-2">
+        <ThemeToggle variant="icons" compact />
       </div>
     </aside>
   );
