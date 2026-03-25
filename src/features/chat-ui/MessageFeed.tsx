@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai";
 import { motion } from "framer-motion";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { AssistantMessageBody } from "./AssistantMessageBody";
 import { UserMessageBody } from "./UserMessageBody";
 
@@ -35,15 +35,13 @@ type MessageRowProps = {
   readonly message: UIMessage;
 };
 
-/** Default shallow compare only: must re-render when streaming updates text inside an existing part (same id + parts.length). */
 const MessageRow = memo(({ message }: MessageRowProps) => {
   const isUser = message.role === "user";
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={messageRowSpring}
-      style={{ willChange: "opacity, transform" }}
       className={isUser ? "flex justify-end" : "flex justify-start"}
     >
       <div
@@ -66,32 +64,57 @@ MessageRow.displayName = "MessageRow";
 
 export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isNearBottom = (): boolean => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    const threshold = 100;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  };
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const runScroll = () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(() => {
-        el.scrollTo({
-          top: el.scrollHeight,
-          behavior: status === "streaming" || status === "submitted" ? "smooth" : "auto",
-        });
-      });
+    const onScroll = () => {
+      setUserScrolledUp(!isNearBottom());
     };
 
-    runScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (userScrolledUp && status !== "streaming" && status !== "submitted") {
+      return;
+    }
+
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      anchorRef.current?.scrollIntoView({ behavior: "instant", block: "end" });
+    }, 16);
+
     return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
     };
-  }, [messages, status]);
+  }, [messages, status, userScrolledUp]);
 
   return (
     <div
       ref={scrollRef}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6 max-md:pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))] md:px-4"
+      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 max-md:pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))] md:px-4"
+      style={{ 
+        overscrollBehavior: "contain",
+        WebkitOverflowScrolling: "touch",
+      }}
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -108,6 +131,8 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
         {error ? (
           <ErrorBanner error={error} />
         ) : null}
+
+        <div ref={anchorRef} className="h-px flex-shrink-0" aria-hidden />
       </div>
     </div>
   );

@@ -8,7 +8,9 @@ import {
 export type AiContextAction = {
   readonly id: string;
   readonly label: string;
+  readonly icon?: string;
   readonly cone?: boolean;
+  readonly separator?: boolean;
   readonly run: () => void;
 };
 
@@ -48,19 +50,35 @@ export const buildAiContextActions = ({
 
   const actions: AiContextAction[] = [];
 
+  if (hasSel) {
+    actions.push({
+      id: "copy",
+      label: "Copy",
+      icon: "copy",
+      run: () => {
+        navigator.clipboard.writeText(sel);
+        closeMenu();
+      },
+    });
+  }
+
   actions.push({
     id: "ask-chat",
     label: "Ask in Chat…",
+    icon: "message",
     run: () => {
       goChat("", { focus: true });
     },
   });
 
   if (hasSel) {
+    actions.push({ id: "sep-1", label: "", separator: true, run: () => {} });
+
     actions.push(
       {
         id: "summarize",
         label: "Summarize",
+        icon: "list",
         cone: true,
         run: () => {
           goChat(`Summarize the following in a few concise bullets:\n\n${quoteBlock(sel)}`);
@@ -69,6 +87,7 @@ export const buildAiContextActions = ({
       {
         id: "rewrite",
         label: "Rewrite",
+        icon: "pencil",
         cone: true,
         run: () => {
           goChat(`Rewrite the following more clearly and directly:\n\n${quoteBlock(sel)}`);
@@ -77,6 +96,7 @@ export const buildAiContextActions = ({
       {
         id: "tone",
         label: "Fix tone",
+        icon: "sparkles",
         cone: true,
         run: () => {
           goChat(
@@ -87,9 +107,31 @@ export const buildAiContextActions = ({
       {
         id: "explain",
         label: "Explain",
+        icon: "lightbulb",
         cone: true,
         run: () => {
           goChat(`Explain the following in plain language:\n\n${quoteBlock(sel)}`);
+        },
+      },
+    );
+
+    actions.push({ id: "sep-2", label: "", separator: true, run: () => {} });
+
+    actions.push(
+      {
+        id: "translate",
+        label: "Translate…",
+        icon: "languages",
+        run: () => {
+          goChat(`Translate the following to English (or the most appropriate language if already in English, explain what language it is):\n\n${quoteBlock(sel)}`);
+        },
+      },
+      {
+        id: "search-web",
+        label: "Search web",
+        icon: "globe",
+        run: () => {
+          goChat(`Search the web for information about: "${sel.slice(0, 200)}"`);
         },
       },
     );
@@ -98,6 +140,7 @@ export const buildAiContextActions = ({
       actions.push({
         id: "continue",
         label: "Continue from selection",
+        icon: "arrow-right",
         run: () => {
           goChat(`Continue naturally from this text:\n\n${quoteBlock(sel)}`);
         },
@@ -108,6 +151,7 @@ export const buildAiContextActions = ({
       actions.push({
         id: "quote",
         label: "Quote in message",
+        icon: "quote",
         run: () => {
           goChat(buildQuotedChatMessage(sel));
         },
@@ -118,6 +162,7 @@ export const buildAiContextActions = ({
       actions.push({
         id: "docs-edit-selection",
         label: "Instruct Doc assistant…",
+        icon: "file-edit",
         run: () => {
           goDocsAssist(
             `Improve the following part of the document (use docs_apply_edits when appropriate). Selection context:\n\n${quoteBlock(sel)}`,
@@ -129,6 +174,7 @@ export const buildAiContextActions = ({
     actions.push({
       id: "docs-open-assist",
       label: "Open Doc assistant",
+      icon: "file-text",
       run: () => {
         goDocsAssist(
           "Help me improve the open document. Suggest concrete edits using docs_apply_edits.",

@@ -2,6 +2,20 @@
 
 import { cn } from "@/lib/utils";
 import {
+  ArrowRight,
+  Copy,
+  FileEdit,
+  FileText,
+  Globe,
+  Languages,
+  Lightbulb,
+  List,
+  MessageSquare,
+  Pencil,
+  Quote,
+  Sparkles,
+} from "lucide-react";
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -14,6 +28,21 @@ import { useAiWorkspace } from "./ai-workspace-context";
 
 const MENU_W = 280;
 const MENU_PAD = 8;
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  copy: Copy,
+  message: MessageSquare,
+  list: List,
+  pencil: Pencil,
+  sparkles: Sparkles,
+  lightbulb: Lightbulb,
+  languages: Languages,
+  globe: Globe,
+  "arrow-right": ArrowRight,
+  quote: Quote,
+  "file-edit": FileEdit,
+  "file-text": FileText,
+};
 
 const shouldUseNativeContextMenu = (target: EventTarget | null): boolean => {
   if (!(target instanceof Element)) return false;
@@ -31,6 +60,7 @@ export const GlobalContextMenuLayer = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   const closeMenu = useCallback(() => {
     setOpen(false);
@@ -61,6 +91,7 @@ export const GlobalContextMenuLayer = () => {
         typeof window !== "undefined" &&
           window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       );
+      setFocusedIndex(0);
       setOpen(true);
     };
 
@@ -71,7 +102,27 @@ export const GlobalContextMenuLayer = () => {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMenu();
+      if (e.key === "Escape") {
+        closeMenu();
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const actions = buildAiContextActions({
+          panel,
+          selectionText: selectionAtOpen,
+          onPanelChange,
+          closeMenu,
+        });
+        const nonSeparatorActions = actions.filter((a) => !a.separator);
+        if (nonSeparatorActions.length === 0) return;
+        setFocusedIndex((prev) => {
+          if (e.key === "ArrowDown") {
+            return (prev + 1) % nonSeparatorActions.length;
+          }
+          return (prev - 1 + nonSeparatorActions.length) % nonSeparatorActions.length;
+        });
+      }
     };
     const onPointer = (e: MouseEvent) => {
       const m = menuRef.current;
@@ -84,12 +135,15 @@ export const GlobalContextMenuLayer = () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onPointer);
     };
-  }, [open, closeMenu]);
+  }, [open, closeMenu, panel, selectionAtOpen, onPanelChange]);
 
   useLayoutEffect(() => {
     if (!open) return;
-    firstItemRef.current?.focus();
-  }, [open]);
+    const buttons = menuRef.current?.querySelectorAll("button[role='menuitem']");
+    if (buttons && buttons[focusedIndex]) {
+      (buttons[focusedIndex] as HTMLButtonElement).focus();
+    }
+  }, [open, focusedIndex]);
 
   if (!open) return null;
 
@@ -101,64 +155,84 @@ export const GlobalContextMenuLayer = () => {
   });
   const cone = coneActionsFrom(actions);
   const coneIds = new Set(cone.map((c) => c.id));
-  const menuListActions = actions.filter((a) => !coneIds.has(a.id));
 
   const menu = (
     <div
       ref={menuRef}
       role="menu"
       aria-label="AI actions"
-      className="fixed z-[100] w-[min(280px,calc(100vw-16px))] rounded-lg border border-border bg-popover py-1.5 text-popover-foreground shadow-lg outline-none"
+      className="fixed z-[100] w-[min(280px,calc(100vw-16px))] rounded-xl border border-border/80 bg-popover/95 backdrop-blur-sm py-1.5 text-popover-foreground shadow-xl outline-none"
       style={{ left: pos.x, top: pos.y }}
     >
-      <div className="border-b border-border px-2 pb-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          AI actions
-        </p>
-        {cone.length > 0 ? (
+      {cone.length > 0 && (
+        <div className="px-2 pb-2 mb-1.5 border-b border-border/60">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            Suggested
+          </p>
           <div
-            className="mt-2 flex flex-wrap gap-1.5 motion-safe:pt-0.5"
+            className="flex flex-wrap gap-1.5"
             role="group"
             aria-label="Suggested actions"
           >
-            {cone.map((a, i) => (
-              <button
-                key={a.id}
-                ref={i === 0 ? firstItemRef : undefined}
-                type="button"
-                role="menuitem"
-                onClick={() => a.run()}
-                className={cn(
-                  "rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "motion-safe:origin-bottom motion-safe:-translate-y-px motion-safe:transition-transform",
-                )}
-                style={
-                  !reduceMotion
-                    ? {
-                        transform: `rotate(${-8 + i * 5.5}deg) translateY(${-i * 2}px)`,
-                      }
-                    : undefined
-                }
-              >
-                {a.label}
-              </button>
-            ))}
+            {cone.map((a, i) => {
+              const Icon = a.icon ? iconMap[a.icon] : undefined;
+              return (
+                <button
+                  key={a.id}
+                  ref={i === 0 ? firstItemRef : undefined}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => a.run()}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/50 px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-all",
+                    "hover:bg-muted hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                    !reduceMotion && "motion-safe:transition-transform",
+                  )}
+                  style={
+                    !reduceMotion
+                      ? {
+                          transform: `rotate(${-4 + i * 3}deg)`,
+                        }
+                      : undefined
+                  }
+                >
+                  {Icon && <Icon className="size-3 opacity-70" aria-hidden />}
+                  {a.label}
+                </button>
+              );
+            })}
           </div>
-        ) : null}
-      </div>
-      <div className="max-h-[min(320px,50vh)] overflow-y-auto py-1">
-        {menuListActions.map((a, i) => (
-          <button
-            key={a.id}
-            ref={cone.length === 0 && i === 0 ? firstItemRef : undefined}
-            type="button"
-            role="menuitem"
-            onClick={() => a.run()}
-            className="flex w-full px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-          >
-            {a.label}
-          </button>
-        ))}
+        </div>
+      )}
+
+      <div className="max-h-[min(320px,50vh)] overflow-y-auto py-0.5">
+        {actions.map((a, i) => {
+          if (a.separator) {
+            return (
+              <div
+                key={a.id}
+                className="my-1.5 h-px bg-border/60 mx-2"
+                role="separator"
+              />
+            );
+          }
+          if (coneIds.has(a.id)) return null;
+
+          const Icon = a.icon ? iconMap[a.icon] : undefined;
+          return (
+            <button
+              key={a.id}
+              ref={cone.length === 0 && i === 0 ? firstItemRef : undefined}
+              type="button"
+              role="menuitem"
+              onClick={() => a.run()}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted/80 focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            >
+              {Icon && <Icon className="size-4 shrink-0 opacity-60" aria-hidden />}
+              <span>{a.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
