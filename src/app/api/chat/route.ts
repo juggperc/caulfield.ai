@@ -278,23 +278,27 @@ export async function POST(req: Request) {
   }
 
   const quotaEnforced = hosted && isDbConfigured();
+  let accountContextResult: { tier: string; queriesRemaining: number } | null = null;
+
   if (quotaEnforced) {
-    const qc = await checkChatQuota(userId, { billable });
-    if (!qc.ok) {
+    const [quotaCheck, accountCtx] = await Promise.all([
+      checkChatQuota(userId, { billable }),
+      getAccountContextForPrompt(userId),
+    ]);
+    if (!quotaCheck.ok) {
       return new Response(
         JSON.stringify({
-          error: qc.message,
+          error: quotaCheck.message,
           code: "QUOTA_EXCEEDED",
         }),
         { status: 402, headers: { "Content-Type": "application/json" } },
       );
     }
+    accountContextResult = accountCtx;
   }
 
   const dateTimeContext = getDateTimeContext();
-  const accountContext = quotaEnforced
-    ? await getAccountContextForPrompt(userId)
-    : null;
+  const accountContext = accountContextResult;
 
   const accountBlock =
     accountContext && accountContext.tier !== "unlimited"

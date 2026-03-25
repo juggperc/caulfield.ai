@@ -10,10 +10,34 @@ const TOP_K = 8;
 const MAX_CHUNKS_TOTAL = 56;
 const CHUNK_SIZE = 420;
 const CHUNK_OVERLAP = 72;
+const MIN_QUERY_LENGTH_FOR_RAG = 3;
+
+const embeddingCache = new Map<string, { embedding: number[]; timestamp: number }>();
+const EMBEDDING_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type RagChunk = {
   readonly label: string;
   readonly text: string;
+};
+
+const getCachedEmbedding = (text: string): number[] | null => {
+  const cached = embeddingCache.get(text);
+  if (cached && Date.now() - cached.timestamp < EMBEDDING_CACHE_TTL_MS) {
+    return cached.embedding;
+  }
+  return null;
+};
+
+const setCachedEmbedding = (text: string, embedding: number[]): void => {
+  if (embeddingCache.size > 1000) {
+    const now = Date.now();
+    for (const [key, val] of embeddingCache) {
+      if (now - val.timestamp > EMBEDDING_CACHE_TTL_MS) {
+        embeddingCache.delete(key);
+      }
+    }
+  }
+  embeddingCache.set(text, { embedding, timestamp: Date.now() });
 };
 
 const collectAllChunks = (
@@ -90,7 +114,7 @@ export const buildUnifiedRagContextBlock = async (params: {
   readonly ragIncludeMemory?: boolean;
 }): Promise<string> => {
   const q = params.userQuery.trim();
-  if (!q) return "";
+  if (!q || q.length < MIN_QUERY_LENGTH_FOR_RAG) return "";
 
   const includeResearch = params.ragIncludeResearch !== false;
   const includeMemory = params.ragIncludeMemory !== false;
@@ -107,20 +131,45 @@ export const buildUnifiedRagContextBlock = async (params: {
     const openrouter = createOpenRouter({ apiKey: params.apiKey });
     const model = openrouter.textEmbeddingModel(params.embeddingModelId);
 
-    const texts = [q, ...chunks.map((c) => c.text)];
+    const textsToEmbed = [q];
+    const textToIndex = new Map<string, number>();
+    textToIndex.set(q, 0);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const cacheKey = `${chunks[i].text.slice(0, 100)}:${chunks[i].label}`;
+      const cached = getCachedEmbedding(cacheKey);
+      if (cached) {
+        continue;
+      }
+      textToIndex.set(chunks[i].text, textsToEmbed.length);
+      textsToEmbed.push(chunks[i].text);
+    }
+
     const { embeddings } = await embedMany({
       model,
-      values: texts,
+      values: textsToEmbed,
       maxParallelCalls: 4,
     });
 
-    const queryVec = embeddings[0];
-    const chunkVecs = embeddings.slice(1);
+    for (let i = 1; i < textsToEmbed.length; i++) {
+      const cacheKey = `${textsToEmbed[i].slice(0, 100)}:${chunks[textToIndex.get(textsToEmbed[i])! - 1]?.label ?? ""}`;
+      if (!getCachedEmbedding(cacheKey)) {
+        setCachedEmbedding(cacheKey, embeddings[i]);
+      }
+    }
 
-    const scored = chunkVecs.map((vec, i) => ({
-      i,
-      score: cosineSimilarity(queryVec, vec),
-    }));
+    const queryVec = embeddings[0];
+
+    const scored: { i: number; score: number }[] = [];
+    for (let i = 1; i < embeddings.length; i++) {
+      const chunkIndex = textToIndex.get(textsToEmbed[i])! - 1;
+      if (chunkIndex >= 0 && chunkIndex < chunks.length) {
+        scored.push({
+          i: chunkIndex,
+          score: cosineSimilarity(queryVec, embeddings[i]),
+        });
+      }
+    }
     scored.sort((a, b) => b.score - a.score);
 
     const top = scored.slice(0, TOP_K).map((s) => chunks[s.i]);
