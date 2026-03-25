@@ -12,7 +12,7 @@ import {
 } from "framer-motion";
 import { Crown, Zap, Calendar } from "lucide-react";
 import confetti from "canvas-confetti";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 
 type MembershipCardDialogProps = {
   open: boolean;
@@ -26,78 +26,32 @@ type MembershipCardDialogProps = {
 const tierConfigs = {
   free: {
     label: "Free Member",
-    gradient: "from-zinc-400 to-zinc-600",
+    gradientClass: "bg-gradient-to-br from-zinc-500 via-zinc-600 to-zinc-700",
     icon: Zap,
-    glow: "bg-zinc-500/20",
-    border: "border-zinc-400/50",
+    border: "border-zinc-400/40",
     confettiColors: ["#71717A", "#A1A1AA", "#D4D4D8"] as const,
-    blobColors: ["zinc-500", "zinc-600", "zinc-400"],
+    blob1Class: "bg-zinc-400/40",
+    blob2Class: "bg-zinc-500/30",
   },
   paid: {
     label: "Pro Member",
-    gradient: "from-violet-500 to-purple-600",
+    gradientClass: "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-600",
     icon: Crown,
-    glow: "bg-violet-500/20",
-    border: "border-violet-500/50",
+    border: "border-violet-400/40",
     confettiColors: ["#8B5CF6", "#A855F7", "#D946EF"] as const,
-    blobColors: ["violet-500", "purple-500", "fuchsia-500"],
+    blob1Class: "bg-violet-400/40",
+    blob2Class: "bg-purple-500/30",
   },
   unlimited: {
     label: "Unlimited",
-    gradient: "from-amber-400 via-orange-500 to-rose-500",
+    gradientClass: "bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500",
     icon: Crown,
-    glow: "bg-amber-500/20",
-    border: "border-amber-400/50",
+    border: "border-amber-400/40",
     confettiColors: ["#FFB800", "#FF5C00", "#FF0055"] as const,
-    blobColors: ["amber-500", "orange-500", "rose-500"],
+    blob1Class: "bg-amber-400/40",
+    blob2Class: "bg-orange-500/30",
   },
 } as const;
-
-const FloatingBlob = ({
-  color,
-  position,
-  delay,
-  reduceMotion,
-}: {
-  color: string;
-  position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
-  delay: number;
-  reduceMotion: boolean;
-}) => {
-  const positionClasses = {
-    "top-left": "-top-20 -left-20",
-    "top-right": "-top-20 -right-20",
-    "bottom-left": "-bottom-20 -left-20",
-    "bottom-right": "-bottom-20 -right-20",
-  };
-
-  if (reduceMotion) {
-    return (
-      <div
-        className={`absolute ${positionClasses[position]} w-40 h-40 bg-${color}/30 rounded-full blur-3xl`}
-        aria-hidden
-      />
-    );
-  }
-
-  return (
-    <motion.div
-      className={`absolute ${positionClasses[position]} w-40 h-40 bg-${color}/30 rounded-full blur-3xl`}
-      animate={{
-        x: [0, 20, 0],
-        y: [0, -20, 0],
-        scale: [1, 1.1, 1],
-      }}
-      transition={{
-        duration: 8 + delay,
-        repeat: Infinity,
-        ease: "easeInOut",
-        delay,
-      }}
-      aria-hidden
-    />
-  );
-};
 
 const SpotlightOverlay = ({
   mouseX,
@@ -109,7 +63,7 @@ const SpotlightOverlay = ({
   const background = useTransform(
     [mouseX, mouseY],
     ([x, y]) =>
-      `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.15) 0%, transparent 50%)`
+      `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 25%, transparent 50%)`
   );
 
   return (
@@ -132,52 +86,54 @@ export const MembershipCardDialog = ({
   const config = tierConfigs[tier];
   const Icon = config.icon;
   const prefersReducedMotion = useReducedMotion();
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
+  const mouseX = useMotionValue(0.5);
+  const mouseY = useMotionValue(0.5);
+  const spotlightX = useMotionValue(0);
+  const spotlightY = useMotionValue(0);
 
-  const springConfig = { stiffness: 200, damping: 20 };
-  const springX = useSpring(x, springConfig);
-  const springY = useSpring(y, springConfig);
+  const springConfig = { stiffness: 300, damping: 30 };
+  const springX = useSpring(mouseX, springConfig);
+  const springY = useSpring(mouseY, springConfig);
 
-  const rotateX = useTransform(springY, [-0.5, 0.5], [10, -10]);
-  const rotateY = useTransform(springX, [-0.5, 0.5], [-10, 10]);
+  const rotateX = useTransform(springY, [0, 1], [15, -15]);
+  const rotateY = useTransform(springX, [0, 1], [-15, 15]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (prefersReducedMotion) return;
+      if (prefersReducedMotion || !cardRef.current) return;
 
-      const rect = e.currentTarget.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      const rect = cardRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
 
-      x.set((e.clientX - centerX) / rect.width);
-      y.set((e.clientY - centerY) / rect.height);
-
-      mouseX.set(e.clientX - rect.left);
-      mouseY.set(e.clientY - rect.top);
+      mouseX.set(x);
+      mouseY.set(y);
+      spotlightX.set(e.clientX - rect.left);
+      spotlightY.set(e.clientY - rect.top);
     },
-    [x, y, mouseX, mouseY, prefersReducedMotion]
+    [mouseX, mouseY, spotlightX, spotlightY, prefersReducedMotion]
   );
 
   const handleMouseLeave = useCallback(() => {
-    x.set(0);
-    y.set(0);
-  }, [x, y]);
+    mouseX.set(0.5);
+    mouseY.set(0.5);
+  }, [mouseX, mouseY]);
 
   useEffect(() => {
     if (open && !prefersReducedMotion) {
       const timer = setTimeout(() => {
         confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.7 },
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.6 },
           colors: [...config.confettiColors],
-          ticks: 200,
+          ticks: 150,
+          gravity: 0.8,
+          scalar: 1.2,
         });
-      }, 300);
+      }, 200);
 
       return () => clearTimeout(timer);
     }
@@ -185,28 +141,21 @@ export const MembershipCardDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="pointer-events-none border-0 bg-transparent p-0">
+      <DialogContent className="pointer-events-none border-0 bg-transparent p-0 shadow-none">
         <motion.div
           className="relative mx-auto w-80"
-          style={{ perspective: "1000px" }}
-          initial={
-            prefersReducedMotion
-              ? { opacity: 1, scale: 1 }
-              : { opacity: 0, scale: 0.8, rotateY: -30 }
-          }
-          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-          exit={
-            prefersReducedMotion
-              ? { opacity: 0 }
-              : { opacity: 0, scale: 0.8, rotateY: 30 }
-          }
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
           transition={{
-            duration: prefersReducedMotion ? 0.15 : 0.5,
-            ease: "easeOut",
+            duration: prefersReducedMotion ? 0.15 : 0.4,
+            ease: [0.16, 1, 0.3, 1],
           }}
+          style={{ perspective: "1200px" }}
         >
           <motion.div
-            className={`relative overflow-hidden rounded-2xl border-2 ${config.border} bg-gradient-to-br ${config.gradient} p-6 shadow-2xl`}
+            ref={cardRef}
+            className={`relative overflow-hidden rounded-2xl border ${config.border} ${config.gradientClass} p-6 shadow-2xl`}
             style={{
               transformStyle: "preserve-3d",
               rotateX: prefersReducedMotion ? 0 : rotateX,
@@ -215,97 +164,118 @@ export const MembershipCardDialog = ({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
-            <div
-              className="pointer-events-none absolute inset-0 rounded-2xl backdrop-blur-sm"
-              aria-hidden
-            />
-
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-              {!prefersReducedMotion && (
-                <>
-                  <FloatingBlob
-                    color={config.blobColors[0]}
-                    position="top-left"
-                    delay={0}
-                    reduceMotion={false}
-                  />
-                  <FloatingBlob
-                    color={config.blobColors[1]}
-                    position="bottom-right"
-                    delay={2}
-                    reduceMotion={false}
-                  />
-                </>
-              )}
-            </div>
-
+            {/* Floating gradient blobs */}
             {!prefersReducedMotion && (
-              <SpotlightOverlay mouseX={mouseX} mouseY={mouseY} />
+              <>
+                <motion.div
+                  className={`pointer-events-none absolute -top-24 -left-24 h-48 w-48 rounded-full ${config.blob1Class} blur-3xl`}
+                  animate={{
+                    x: [0, 30, 0],
+                    y: [0, -20, 0],
+                    scale: [1, 1.2, 1],
+                  }}
+                  transition={{
+                    duration: 6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  aria-hidden
+                />
+                <motion.div
+                  className={`pointer-events-none absolute -bottom-24 -right-24 h-48 w-48 rounded-full ${config.blob2Class} blur-3xl`}
+                  animate={{
+                    x: [0, -30, 0],
+                    y: [0, 20, 0],
+                    scale: [1, 1.15, 1],
+                  }}
+                  transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 1,
+                  }}
+                  aria-hidden
+                />
+              </>
             )}
 
-            <div
-              className="pointer-events-none absolute inset-0 overflow-hidden"
-              aria-hidden
-            >
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                initial={{ x: "-100%", y: "-100%" }}
-                animate={{ x: "200%", y: "200%" }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  repeatDelay: 4,
-                  ease: "linear",
-                }}
-                style={{ width: "50%", height: "200%" }}
-              />
-            </div>
+            {/* Spotlight that follows cursor */}
+            {!prefersReducedMotion && (
+              <SpotlightOverlay mouseX={spotlightX} mouseY={spotlightY} />
+            )}
 
+            {/* Horizontal shine sweep */}
+            {!prefersReducedMotion && (
+              <div
+                className="pointer-events-none absolute inset-0 overflow-hidden"
+                aria-hidden
+              >
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                  initial={{ x: "-100%", y: "-100%" }}
+                  animate={{ x: "200%", y: "200%" }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    repeatDelay: 5,
+                    ease: "easeInOut",
+                  }}
+                  style={{ width: "40%", height: "200%" }}
+                />
+              </div>
+            )}
+
+            {/* Content */}
             <div className="relative z-10">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-medium text-white/80">
+              {/* Header */}
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-xs font-medium uppercase tracking-wider text-white/60">
                   caulfield.ai
                 </span>
-                <div className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1">
+                <div className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 backdrop-blur-sm">
                   <Icon className="size-3.5 text-white" aria-hidden />
-                  <span className="text-xs font-medium text-white">
+                  <span className="text-xs font-semibold text-white">
                     {config.label}
                   </span>
                 </div>
               </div>
 
+              {/* Avatar and name */}
               <div className="mb-6 flex items-center gap-4">
                 <motion.div
                   className="relative"
-                  whileHover={
-                    prefersReducedMotion ? undefined : { scale: 1.05, rotateY: 5 }
-                  }
-                  transition={{ type: "spring", stiffness: 300 }}
+                  whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 >
-                  <div className="ring-2 ring-white/30">
+                  <div className="ring-2 ring-white/20 rounded-full">
                     <UserAvatarGlow userId={userId} label={displayName} />
                   </div>
                 </motion.div>
-                <div>
-                  <p className="text-lg font-bold text-white">{displayName}</p>
-                  <p className="text-sm text-white/70">{userId.slice(0, 8)}...</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-bold text-white">{displayName}</p>
+                  <p className="text-sm text-white/50 font-mono">{userId.slice(0, 8)}</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 rounded-lg bg-white/10 p-3">
-                  <Crown className="size-4 text-white/80" aria-hidden />
-                  <div>
-                    <p className="text-xs text-white/60">Membership Tier</p>
+              {/* Info rows */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+                  <Crown className="size-4 text-white/70" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-wider text-white/50">
+                      Membership
+                    </p>
                     <p className="font-semibold text-white">{config.label}</p>
                   </div>
                 </div>
 
                 {joinedAt && (
-                  <div className="flex items-center gap-2 rounded-lg bg-white/10 p-3">
-                    <Calendar className="size-4 text-white/80" aria-hidden />
-                    <div>
-                      <p className="text-xs text-white/60">Member Since</p>
+                  <div className="flex items-center gap-3 rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+                    <Calendar className="size-4 text-white/70" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-wider text-white/50">
+                        Member Since
+                      </p>
                       <p className="font-semibold text-white">{joinedAt}</p>
                     </div>
                   </div>
@@ -313,17 +283,18 @@ export const MembershipCardDialog = ({
               </div>
             </div>
 
+            {/* Top-left highlight */}
             <div
               className="pointer-events-none absolute inset-0 rounded-2xl"
               style={{
                 background:
-                  "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.15) 0%, transparent 50%)",
+                  "radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.2) 0%, transparent 50%)",
               }}
               aria-hidden
             />
           </motion.div>
         </motion.div>
       </DialogContent>
-   </Dialog>
+    </Dialog>
   );
 };
