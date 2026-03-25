@@ -1,13 +1,13 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { chatMessages, conversations } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, lt, or } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { NextResponse } from "next/server";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
-export const GET = async (_req: Request, ctx: RouteCtx) => {
+export const GET = async (req: Request, ctx: RouteCtx) => {
   const session = await auth();
   const { id } = await ctx.params;
   if (!db || !session?.user?.id) {
@@ -23,19 +23,65 @@ export const GET = async (_req: Request, ctx: RouteCtx) => {
   if (!conv) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const rows = await db
-    .select()
-    .from(chatMessages)
-    .where(eq(chatMessages.conversationId, id))
-    .orderBy(chatMessages.createdAt);
 
-  const messages: UIMessage[] = rows.map((r) => ({
+  const url = new URL(req.url);
+  const limitParam = url.searchParams.get("limit");
+  const cursorParam = url.searchParams.get("cursor");
+  const limit = limitParam
+    ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100)
+    : 100;
+  const cursor = cursorParam?.trim() || null;
+
+  let rows;
+  if (cursor) {
+    const [cursorTime, cursorId] = cursor.split("_");
+    const cursorDate = new Date(cursorTime);
+    rows = await db
+      .select()
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.conversationId, id),
+          or(
+            lt(chatMessages.createdAt, cursorDate),
+            and(
+              eq(chatMessages.createdAt, cursorDate),
+              lt(chatMessages.id, cursorId)
+            )
+          )
+        )
+      )
+      .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+      .limit(limit + 1);
+  } else {
+    rows = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, id))
+      .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+      .limit(limit + 1);
+  }
+
+  const hasMore = rows.length > limit;
+  const messages = hasMore ? rows.slice(0, limit) : rows;
+  const lastMessage = messages[messages.length - 1];
+  const nextCursor =
+    hasMore && lastMessage
+      ? `${lastMessage.createdAt.toISOString()}_${lastMessage.id}`
+      : null;
+
+  const formattedMessages: UIMessage[] = messages.map((r) => ({
     id: r.id,
     role: r.role as UIMessage["role"],
     parts: r.parts as UIMessage["parts"],
   }));
 
-  return NextResponse.json({ conversation: conv, messages });
+  return NextResponse.json({
+    conversation: conv,
+    messages: formattedMessages,
+    hasMore,
+    nextCursor,
+  });
 };
 
 export const PATCH = async (req: Request, ctx: RouteCtx) => {

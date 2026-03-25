@@ -10,7 +10,7 @@ import {
 } from "@/features/ai-context-menu/ai-pending-prompts";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
-import { ArrowUp, X } from "lucide-react";
+import { ArrowUp, Loader2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -227,10 +227,14 @@ export const ChatInputBar = ({
               type="submit"
               size="icon-sm"
               variant="default"
-              disabled={isBusy || !canSend}
+              disabled={isBusy|| !canSend}
               aria-label="Send message"
             >
-              <ArrowUp className="size-4" aria-hidden />
+              {isBusy ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <ArrowUp className="size-4" aria-hidden />
+              )}
             </Button>
           </div>
         </div>

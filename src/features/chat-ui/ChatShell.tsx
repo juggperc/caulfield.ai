@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ChatErrorBoundary } from "@/components/ui/error-boundary";
 import { useSession } from "@/features/auth/session-context";
 import {
   readLastServerConversationId,
@@ -261,11 +262,12 @@ export const ChatShell = () => {
       return;
     }
 
-    let cancelled = false;
+    const abortController = new AbortController();
+    const { signal } = abortController;
 
     const run = async () => {
       if (!cfg.databaseConfigured) {
-        if (!cancelled) {
+        if (!signal.aborted) {
           const id = getOrCreateLocalConversationId();
           const loaded = loadConversationMessages(id) ?? [];
           setConvId(id);
@@ -281,7 +283,7 @@ export const ChatShell = () => {
       }
 
       if (!user?.id) {
-        if (!cancelled) {
+        if (!signal.aborted) {
           setConvId(null);
           setInitialMessages([]);
           setHistoryError(null);
@@ -290,7 +292,7 @@ export const ChatShell = () => {
         return;
       }
 
-      if (!cancelled) {
+      if (!signal.aborted) {
         setHistoryReady(false);
         setHistoryError(null);
       }
@@ -301,11 +303,13 @@ export const ChatShell = () => {
         if (preferred) {
           const preferredRes = await fetch(`/api/conversations/${preferred}`, {
             credentials: "include",
+            signal,
           });
+          if (signal.aborted) return;
           if (preferredRes.ok) {
             const preferredConversation =
               (await preferredRes.json()) as ConversationPayload;
-            if (!cancelled) {
+            if (!signal.aborted) {
               writeLastServerConversationId(preferredConversation.id);
               setConvId(preferredConversation.id);
               setInitialMessages(preferredConversation.messages ?? []);
@@ -318,19 +322,23 @@ export const ChatShell = () => {
 
         const listRes = await fetch("/api/conversations", {
           credentials: "include",
+          signal,
         });
+        if (signal.aborted) return;
         if (!listRes.ok) {
           throw new Error(`List failed (${listRes.status})`);
         }
         const list = (await listRes.json()) as { id: string }[];
-        if (cancelled) return;
+        if (signal.aborted) return;
 
         let id = list[0]?.id;
         if (!id) {
           const postRes = await fetch("/api/conversations", {
             method: "POST",
             credentials: "include",
+            signal,
           });
+          if (signal.aborted) return;
           if (!postRes.ok) {
             throw new Error(`Create conversation failed (${postRes.status})`);
           }
@@ -341,16 +349,18 @@ export const ChatShell = () => {
           }
           id = newId;
         }
-        if (cancelled) return;
+        if (signal.aborted) return;
 
         const dataRes = await fetch(`/api/conversations/${id}`, {
           credentials: "include",
+          signal,
         });
+        if (signal.aborted) return;
         if (!dataRes.ok) {
           throw new Error(`Load conversation failed (${dataRes.status})`);
         }
         const data = (await dataRes.json()) as ConversationPayload;
-        if (cancelled) return;
+        if (signal.aborted) return;
 
         writeLastServerConversationId(id);
         setConvId(id);
@@ -358,7 +368,7 @@ export const ChatShell = () => {
         setHistoryError(null);
         setHistoryReady(true);
       } catch (e) {
-        if (cancelled) return;
+        if (signal.aborted) return;
         console.error("[ChatShell] Conversation bootstrap failed", e);
         setHistoryError(
           "Could not load your chat history. Check your connection and try again.",
@@ -371,7 +381,7 @@ export const ChatShell = () => {
 
     void run();
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
   }, [cfg, status, user?.id, historyRetryNonce]);
 
@@ -411,19 +421,21 @@ export const ChatShell = () => {
   const showNewChat = persistServer || persistLocal;
 
   return (
-    <ChatShellInner
-      key={convId ?? "local"}
-      convId={convId}
-      persistServerHistory={persistServer}
-      persistLocalHistory={persistLocal}
-      initialMessages={initialMessages}
-      onNewChat={showNewChat ? handleNewChat : undefined}
-      isCreatingChat={isCreatingChat}
-      newChatError={newChatError}
-      syncNotesFromAgent={syncNotesFromAgent}
-      syncMemoryFromAgent={syncMemoryFromAgent}
-      syncResearchFromAgent={syncResearchFromAgent}
-    />
+    <ChatErrorBoundary>
+      <ChatShellInner
+        key={convId ?? "local"}
+        convId={convId}
+        persistServerHistory={persistServer}
+        persistLocalHistory={persistLocal}
+        initialMessages={initialMessages}
+        onNewChat={showNewChat ? handleNewChat : undefined}
+        isCreatingChat={isCreatingChat}
+        newChatError={newChatError}
+        syncNotesFromAgent={syncNotesFromAgent}
+        syncMemoryFromAgent={syncMemoryFromAgent}
+        syncResearchFromAgent={syncResearchFromAgent}
+      />
+    </ChatErrorBoundary>
   );
 };
 

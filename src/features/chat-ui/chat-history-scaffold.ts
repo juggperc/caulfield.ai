@@ -1,11 +1,7 @@
 import { getAccountStorageScope } from "@/features/auth/storage-scope";
 import type { UIMessage } from "ai";
 
-/**
- * Scaffold for per-account chat history (server sync with Vercel KV / Postgres later).
- * Local persistence is optional; wire `useChat` `initialMessages` + `onFinish` save here.
- */
-export type ChatConversationMeta = {
+type ChatConversationMeta = {
   readonly id: string;
   readonly title: string;
   readonly updatedAt: number;
@@ -14,14 +10,43 @@ export type ChatConversationMeta = {
 
 const CONVERSATIONS_INDEX_KEY = "caulfield.chat.conversations.v1";
 
-/** Active thread when Postgres is not configured; survives refresh. */
 const LOCAL_ACTIVE_CONV_KEY = "caulfield.chat.localActiveConversationId.v1";
+
+const CACHE_TTL_MS = 60_000;
+
+type CachedMessages = {
+  messages: UIMessage[];
+  timestamp: number;
+};
+
+const messageCache = new Map<string, CachedMessages>();
 
 const localActiveConversationStorageKey = (): string =>
   `${LOCAL_ACTIVE_CONV_KEY}:${getAccountStorageScope()}`;
 
-export const getChatHistoryIndexKey = (): string =>
+const getChatHistoryIndexKey = (): string =>
   `${CONVERSATIONS_INDEX_KEY}:${getAccountStorageScope()}`;
+
+const getCachedMessages = (conversationId: string): UIMessage[] | null => {
+  const cached = messageCache.get(conversationId);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
+    messageCache.delete(conversationId);
+    return null;
+  }
+  return cached.messages;
+};
+
+const setCachedMessages = (
+  conversationId: string,
+  messages: UIMessage[],
+): void => {
+  messageCache.set(conversationId, { messages, timestamp: Date.now() });
+};
+
+const invalidateCachedMessages = (conversationId: string): void => {
+  messageCache.delete(conversationId);
+};
 
 export const getOrCreateLocalConversationId = (): string => {
   if (typeof window === "undefined") return "";
@@ -64,7 +89,6 @@ export const listConversationMetas = (): ChatConversationMeta[] => {
   }
 };
 
-/** Merges into the scoped index; `anon` vs user scope are separate (no auto-migration). */
 export const upsertConversationMeta = (
   meta: Omit<ChatConversationMeta, "accountScope">,
 ): void => {
@@ -93,6 +117,7 @@ export const saveConversationMessages = (
   const key = `caulfield.chat.messages.v1:${scope}:${conversationId}`;
   try {
     localStorage.setItem(key, JSON.stringify(messages));
+    setCachedMessages(conversationId, messages);
   } catch {
     /* quota */
   }
@@ -102,14 +127,28 @@ export const loadConversationMessages = (
   conversationId: string,
 ): UIMessage[] | null => {
   if (typeof window === "undefined") return null;
+  const cached = getCachedMessages(conversationId);
+  if (cached) return cached;
   const scope = getAccountStorageScope();
   const key = `caulfield.chat.messages.v1:${scope}:${conversationId}`;
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as UIMessage[]) : null;
+    if (!Array.isArray(parsed)) return null;
+    setCachedMessages(conversationId, parsed as UIMessage[]);
+    return parsed as UIMessage[];
   } catch {
     return null;
   }
 };
+
+export const clearConversationCache = (conversationId?: string): void => {
+  if (conversationId) {
+    invalidateCachedMessages(conversationId);
+  } else {
+    messageCache.clear();
+  }
+};
+
+export type { ChatConversationMeta };

@@ -28,31 +28,34 @@ export const PUT = async (req: Request, ctx: RouteCtx) => {
   if (!Array.isArray(body.messages)) {
     return NextResponse.json({ error: "Invalid messages" }, { status: 400 });
   }
+  const messages = body.messages;
   const nextTitle =
     typeof body.title === "string" && body.title.trim().length > 0
       ? body.title.trim()
       : null;
 
-  await db.delete(chatMessages).where(eq(chatMessages.conversationId, id));
+  await db.transaction(async (tx) => {
+    await tx.delete(chatMessages).where(eq(chatMessages.conversationId, id));
 
-  if (body.messages.length > 0) {
-    await db.insert(chatMessages).values(
-      body.messages.map((m) => ({
-        id: m.id,
-        conversationId: id,
-        role: m.role,
-        parts: m.parts as unknown[],
-      })),
-    );
-  }
+    if (messages.length > 0) {
+      await tx.insert(chatMessages).values(
+        messages.map((m) => ({
+          id: m.id,
+          conversationId: id,
+          role: m.role,
+          parts: m.parts as unknown[],
+        })),
+      );
+    }
 
-  await db
-    .update(conversations)
-    .set({
-      updatedAt: new Date(),
-      ...(nextTitle ? { title: nextTitle } : {}),
-    })
-    .where(eq(conversations.id, id));
+    await tx
+      .update(conversations)
+      .set({
+        updatedAt: new Date(),
+        ...(nextTitle ? { title: nextTitle } : {}),
+      })
+      .where(eq(conversations.id, id));
+  });
 
   return NextResponse.json({ ok: true });
 };
