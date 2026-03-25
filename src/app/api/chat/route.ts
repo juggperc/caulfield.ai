@@ -22,6 +22,8 @@ import type { Note } from "@/features/notes/types";
 import type { ResearchSnippet } from "@/features/research/research-types";
 import { auth } from "@/auth";
 import { checkChatQuota, consumeChatQuery } from "@/lib/billing/quota";
+import { getAccountContextForPrompt } from "@/lib/billing/quota";
+import { getDateTimeContext } from "@/lib/date-time-context";
 import { isDbConfigured } from "@/lib/db";
 import {
   getEmbeddingModelId,
@@ -289,6 +291,18 @@ export async function POST(req: Request) {
     }
   }
 
+  const dateTimeContext = getDateTimeContext();
+  const accountContext = quotaEnforced
+    ? await getAccountContextForPrompt(userId)
+    : null;
+
+  const accountBlock =
+    accountContext && accountContext.tier !== "unlimited"
+      ? `## Account
+- Plan: ${accountContext.tier === "paid" ? "Paid" : "Free"}
+- Queries remaining: ${accountContext.queriesRemaining}`
+      : "";
+
   const uiMessages = rawMessages as UIMessage[];
   const queryText = getLatestUserTextFromUiMessages(uiMessages);
 
@@ -452,6 +466,9 @@ When the user asks for breaking news, to **search the web**, or other **live / f
 
   const chatSystem = `You are Caulfield.ai — a capable assistant with **full access** to the user's **notes** and **memory** through tools.
 
+${ dateTimeContext}
+${accountBlock}
+
 Behavior:
 - Use \`notes_*\` tools to list, read, search, create, update, or delete notes whenever it helps.
 - Use \`memory_*\` for **durable** facts worth recalling in future chats; call \`memory_create\` when the user asks to remember something or when a compact takeaway clearly should persist—skip stuffing large research payloads unless they ask.
@@ -536,6 +553,9 @@ ${retrievedHeading}
 ${ragBlock || "_No excerpts (empty library or retrieval skipped)._"}`;
 
   let docsSystem = `You are Caulfield.ai — a **document editor** for the Docs workspace.
+
+${dateTimeContext}
+${accountBlock}
 
 Rules:
 - You receive the current document as plain text and as TipTap JSON. Prefer \`docs_apply_edits\` for any change.

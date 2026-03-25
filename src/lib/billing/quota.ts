@@ -260,3 +260,23 @@ export const getQuotaSnapshot = async (userId: string) => {
     subscribed,
   };
 };
+
+export type AccountTier = "free" | "paid" | "unlimited";
+
+export const getAccountContextForPrompt = async (
+  userId: string,
+): Promise<{
+  tier: AccountTier;
+  queriesRemaining: number;
+}> => {
+  const snap = await getQuotaSnapshot(userId);
+  if (snap.unlimited) {
+    return { tier: "unlimited", queriesRemaining: Infinity };
+  }
+  return {
+    tier: snap.subscribed ? "paid" : "free",
+    queriesRemaining: snap.subscribed
+      ? snap.paidRemaining
+      : snap.freeRemaining,
+  };
+};
