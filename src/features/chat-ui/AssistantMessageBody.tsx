@@ -4,10 +4,10 @@ import { isFileSpecOutput } from "@/features/documents/file-spec";
 import { isImageSpecOutput } from "@/features/images/image-payload";
 import type { UIMessage } from "ai";
 import { isToolUIPart } from "ai";
-import { motion } from "framer-motion";
 import { memo } from "react";
 import { GeneratedFileDownload } from "./GeneratedFileDownload";
 import { GeneratedImage } from "./GeneratedImage";
+import { ImageGeneratingIndicator, ThinkingIndicator } from "./LoadingIndicators";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ToolErrorCallout } from "./ToolErrorCallout";
 import {
@@ -17,6 +17,8 @@ import {
 
 type AssistantMessageBodyProps = {
   readonly message: UIMessage;
+  readonly isLastAssistantMessage?: boolean;
+  readonly status?: "submitted" | "streaming" | "ready" | "error";
 };
 
 const WEB_SEARCH_TOOLS = new Set(["native_web_lookup", "exa_search"]);
@@ -48,30 +50,10 @@ const extractSources = (output: unknown): { query: string; sources: SearchSource
   return sources.length > 0 ? { query, sources } : null;
 };
 
-const SearchingIndicator = () => (
-  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-    <motion.span
-      className="inline-flex gap-0.5"
-      aria-label="Searching the web"
-    >
-      Searching the web
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{
-            duration: 1.2,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: "easeInOut",
-          }}
-        >
-          .
-        </motion.span>
-      ))}
-    </motion.span>
-  </div>
-);
+const isImageGenTool = (part: Record<string, unknown>): boolean => {
+  const name = "toolName" in part && typeof part.toolName === "string" ? part.toolName : "";
+  return name === "generate_image";
+};
 
 export const AssistantMessageBody = memo(
   ({ message }: AssistantMessageBodyProps) => {
@@ -139,17 +121,17 @@ export const AssistantMessageBody = memo(
               part.state === "input-streaming" ||
               part.state === "input-available"
             ) {
-              if (isSearchToolPart(part)) {
-                return <SearchingIndicator key={`pend-${part.toolCallId ?? idx}`} />;
+              if (isImageGenTool(part)) {
+                return (
+                  <ImageGeneratingIndicator
+                    key={`img-pend-${part.toolCallId ?? idx}`}
+                  />
+                );
               }
-              return (
-                <p
-                  key={`pend-${part.toolCallId ?? idx}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  {label}…
-                </p>
-              );
+              if (isSearchToolPart(part)) {
+                return <ThinkingIndicator key={`pend-${part.toolCallId ?? idx}`} />;
+              }
+              return <ThinkingIndicator key={`pend-${part.toolCallId ?? idx}`} />;
             }
           }
 

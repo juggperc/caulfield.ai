@@ -1,6 +1,7 @@
 "use client";
 
 import type { FileSpecPayload } from "@/features/documents/file-spec";
+import type { ImageSpecPayload } from "@/features/images/image-payload";
 import {
   createContext,
   useCallback,
@@ -11,6 +12,7 @@ import {
 } from "react";
 import {
   addLibraryGenerated,
+  addLibraryGeneratedImage,
   addLibraryUpload,
   deleteLibraryItem,
   listLibraryItemsSorted,
@@ -28,6 +30,10 @@ type LibraryContextValue = {
     dedupeKey: string,
     payload: FileSpecPayload,
     blob: Blob,
+  ) => Promise<void>;
+  tryAddGeneratedImage: (
+    dedupeKey: string,
+    payload: ImageSpecPayload,
   ) => Promise<void>;
   upsertWorkspaceExport: (
     dedupeKey: string,
@@ -78,6 +84,14 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     [refresh],
   );
 
+  const tryAddGeneratedImage = useCallback(
+    async (dedupeKey: string, payload: ImageSpecPayload) => {
+      await addLibraryGeneratedImage(dedupeKey, payload);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const upsertWorkspaceExport = useCallback(
     async (
       dedupeKey: string,
@@ -99,6 +113,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       addUpload,
       removeItem,
       tryAddGeneratedFromSpec,
+      tryAddGeneratedImage,
       upsertWorkspaceExport,
     }),
     [
@@ -108,6 +123,7 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
       addUpload,
       removeItem,
       tryAddGeneratedFromSpec,
+      tryAddGeneratedImage,
       upsertWorkspaceExport,
     ],
   );

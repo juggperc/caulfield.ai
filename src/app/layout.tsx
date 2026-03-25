@@ -17,7 +17,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "caulfield.ai",
-  description: "caulfield.ai",
+  description: "caulfield.ai — A local-first AI workspace for chat, notes, documents, and more",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-touch-icon.svg",
+  },
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {

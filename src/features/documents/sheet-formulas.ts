@@ -5,7 +5,7 @@ import type { WorkspaceSheetCell } from "./sheets-types";
 
 const CELL_REF_RE = /\b([A-Z]+)(\d+)\b/g;
 const RANGE_RE = /([A-Z]+\d+):([A-Z]+\d+)/i;
-const FUNCTION_RE = /^(SUM|AVERAGE|MIN|MAX)\((.*)\)$/i;
+const FUNCTION_RE = /^(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|IF|ROUND|ABS|INT|SQRT)\((.*)\)$/i;
 
 type CellCoord = { row: number; col: number };
 
@@ -155,9 +155,138 @@ const evaluateFunctionFormula = (
       return serializeNumber(Math.min(...values));
     case "MAX":
       return serializeNumber(Math.max(...values));
+    case "COUNT":
+      return String(values.length);
+    case "COUNTA":
+      return String(values.length);
+    case "ROUND":
+      if (values.length < 2) return serializeNumber(Math.round(values[0] ?? 0));
+      const roundNum = values[0] ?? 0;
+      const decimals = Math.floor(values[1] ?? 0);
+      return serializeNumber(Number(roundNum.toFixed(Math.max(0, decimals))));
+    case "ABS":
+      return serializeNumber(Math.abs(values[0] ?? 0));
+    case "INT":
+      return serializeNumber(Math.floor(values[0] ?? 0));
+    case "SQRT":
+      const sqrtVal = values[0] ?? 0;
+      if (sqrtVal < 0) return "#ERROR";
+      return serializeNumber(Math.sqrt(sqrtVal));
     default:
       return "#ERROR";
   }
+};
+
+const evaluateIfFormula = (
+  argsText: string,
+  rows: WorkspaceSheetCell[][],
+  seen: Set<string>,
+): string => {
+  const args = splitIfArgs(argsText);
+  if (args.length < 2) return "#ERROR";
+
+  const [conditionExpr, trueExpr, falseExpr] = args;
+  if (!conditionExpr) return "#ERROR";
+
+  const conditionResult = evaluateCondition(conditionExpr.trim(), rows, seen);
+  const resultExpr = conditionResult ? trueExpr : (falseExpr ?? "0");
+
+  const trimmedResult = resultExpr.trim();
+  if (!trimmedResult) return "0";
+
+  if (/^["'].*["']$/.test(trimmedResult)) {
+    return trimmedResult.slice(1, -1);
+  }
+
+  if (/^-?\d+(\.\d+)?$/.test(trimmedResult)) {
+    return trimmedResult;
+  }
+
+  const parsed = Number(trimmedResult);
+  if (!Number.isNaN(parsed)) return serializeNumber(parsed);
+
+  return evaluateFormula(`=${trimmedResult}`, rows, seen);
+};
+
+const splitIfArgs = (argsText: string): string[] => {
+  const args: string[] = [];
+  let current = "";
+  let parenDepth = 0;
+  let quoteChar: string | null = null;
+
+  for (const char of argsText) {
+    if (quoteChar) {
+      current += char;
+      if (char === quoteChar) quoteChar = null;
+    } else if (char === '"' || char === "'") {
+      current += char;
+      quoteChar = char;
+    } else if (char === "(") {
+      current += char;
+      parenDepth += 1;
+    } else if (char === ")") {
+      current += char;
+      parenDepth = Math.max(0, parenDepth - 1);
+    } else if (char === "," && parenDepth === 0) {
+      args.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  args.push(current);
+  return args;
+};
+
+const evaluateCondition = (
+  expr: string,
+  rows: WorkspaceSheetCell[][],
+  seen: Set<string>,
+): boolean => {
+  const operators = ["<=", ">=", "<>", "<", ">", "="];
+  for (const op of operators) {
+    if (expr.includes(op)) {
+      const parts = expr.split(op);
+      if (parts.length === 2) {
+        const left = evaluateConditionValue(parts[0].trim(), rows, seen);
+        const right = evaluateConditionValue(parts[1].trim(), rows, seen);
+
+        const leftNum = Number(left);
+        const rightNum = Number(right);
+        const bothNumbers = !Number.isNaN(leftNum) && !Number.isNaN(rightNum);
+
+        if (op === "=" || op == "<>") return left === right;
+        if (op == "<") return bothNumbers ? leftNum < rightNum : left < right;
+        if (op == ">") return bothNumbers ? leftNum > rightNum : left > right;
+        if (op == "<=") return bothNumbers ? leftNum <= rightNum : left <= right;
+        if (op == ">=") return bothNumbers ? leftNum >= rightNum : left >= right;
+      }
+    }
+  }
+
+  const val = evaluateConditionValue(expr, rows, seen);
+  const num = Number(val);
+  if (!Number.isNaN(num)) return num !== 0;
+  return val.length > 0 && val.toLowerCase() !== "false";
+};
+
+const evaluateConditionValue = (
+  expr: string,
+  rows: WorkspaceSheetCell[][],
+  seen: Set<string>,
+): string => {
+  const trimmed = expr.trim();
+  if (/^["'].*["']$/.test(trimmed)) {
+    return trimmed.slice(1, -1);
+  }
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    return trimmed;
+  }
+  const coord = parseCellRef(trimmed);
+  if (coord) {
+    return evaluateCellDisplayValue(coord.row, coord.col, rows, seen);
+  }
+  return trimmed;
 };
 
 export const evaluateFormula = (
@@ -177,7 +306,11 @@ export const evaluateFormula = (
 
   const fnMatch = FUNCTION_RE.exec(body);
   if (fnMatch?.[1] && fnMatch[2] !== undefined) {
-    return evaluateFunctionFormula(fnMatch[1], fnMatch[2], rows, seen);
+    const fnName = fnMatch[1].toUpperCase();
+    if (fnName === "IF") {
+      return evaluateIfFormula(fnMatch[2], rows, seen);
+    }
+    return evaluateFunctionFormula(fnName, fnMatch[2], rows, seen);
   }
 
   return evaluateArithmeticFormula(body, rows, seen);
