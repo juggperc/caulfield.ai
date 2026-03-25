@@ -113,7 +113,7 @@ export const MessageFeed = ({ messages, status, error }: MessageFeedProps) => {
       ref={scrollRef}
       className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 max-md:pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))] md:px-4"
       style={{ 
-        overscrollBehavior: "contain",
+        touchAction: "pan-y",
       }}
       role="log"
       aria-live="polite"
