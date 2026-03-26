@@ -76,10 +76,6 @@ export const GlobalContextMenuLayer = () => {
       if (!(t instanceof Node)) return;
       const workspace = document.querySelector("[data-ai-workspace]");
       if (!workspace || !workspace.contains(t)) return;
-      if (shouldUseNativeContextMenu(t)) return;
-
-      e.preventDefault();
-      e.stopPropagation();
 
       const cellInput = (t as Element).closest("input[aria-label*='Cell']");
       let detectedCellRef: string | null = null;
@@ -89,6 +85,13 @@ export const GlobalContextMenuLayer = () => {
           detectedCellRef = match[1];
         }
       }
+
+      const shouldBlockNative = shouldUseNativeContextMenu(t);
+      if (shouldBlockNative && !detectedCellRef) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
       setCellRef(detectedCellRef);
 
       const sel = window.getSelection()?.toString() ?? "";
