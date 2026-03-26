@@ -577,6 +577,7 @@ The client applies a batch in **descending anchor order** (\`from\` for replace/
 - **Avoid huge tool payloads:** long stories should use multiple smaller \`insert_at\` / \`replace_range\` calls or compact \`paragraph\` arrays—not one giant stringified \`edits\` value that providers may truncate.
 - When the user has highlighted text, prioritize edits that touch the selection range (\`from\`/\`to\` from **Current selection**).
 - **Sheets tab:** use \`sheets_apply_cells\` for workspace spreadsheets. \`sheetRevision\` must match the sheet revision in context; omit \`sheetId\` to target the active sheet.
+- **No active document?** If the user asks to edit or create content but there is no active document, use \`create_word_document\` to create one first, then edit it. You can also answer general questions without requiring a document context.
 - **Notes, memory & downloads:** you also have \`notes_*\`, \`memory_*\` tools and file-creation tools (\`create_spreadsheet\`, etc.) like main chat—use them when the user asks.
 - Be concise in natural-language replies after editing.
 

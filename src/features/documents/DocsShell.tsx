@@ -491,7 +491,7 @@ const assistantInputDisabled =
           <SheetsWorkspace />
         )}
 
-        <div className="flex min-h-0 w-full flex-1 flex-col bg-background max-md:border-t md:w-[min(100%,340px)] md:flex-none md:shrink-0">
+        <div className="flex min-h-0 w-full flex-1 flex-col bg-background max-md:border-t md:sticky md:top-0 md:w-[min(100%,340px)] md:flex-none md:shrink-0 md:max-h-screen">
           <div className="shrink-0 border-b border-border px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[13px] font-medium text-foreground">
@@ -568,8 +568,8 @@ const assistantInputDisabled =
                 onKeyDown={handleSendChatKeyDown}
                 placeholder={
                   workspaceTab === "sheets"
-                    ? "Ask about sheets or the document…"
-                    : "Ask to edit the document…"
+                    ? "Ask about your spreadsheet…"
+                    : "Ask to edit or create a document…"
                 }
                 rows={2}
                 disabled={false}
