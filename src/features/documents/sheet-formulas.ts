@@ -5,7 +5,7 @@ import type { WorkspaceSheetCell } from "./sheets-types";
 
 const CELL_REF_RE = /\b([A-Z]+)(\d+)\b/g;
 const RANGE_RE = /([A-Z]+\d+):([A-Z]+\d+)/i;
-const FUNCTION_RE = /^(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|IF|ROUND|ABS|INT|SQRT)\((.*)\)$/i;
+const FUNCTION_RE = /^(SUM|AVERAGE|MIN|MAX|COUNT|COUNTA|IF|ROUND|ABS|INT|SQRT|VLOOKUP|AND|OR|NOT|LEFT|RIGHT|MID|LEN|TRIM|LOWER|UPPER|PROPER|CONCATENATE|CONCAT|ROUNDDOWN|ROUNDUP|POWER|EXP|LN|LOG|LOG10|PI|TODAY|NOW|DAYS|EDATE|EOMONTH|DATEDIF|CONCATENATE|SEARCH|FIND|SUBSTITUTE|REPT|VALUE|TEXT|ISBLANK|ISERROR|ISNA|ISNUMBER|ISTEXT|NOT|IFERROR)\((.*)\)$/i;
 
 type CellCoord = { row: number; col: number };
 
@@ -170,8 +170,44 @@ const evaluateFunctionFormula = (
       return serializeNumber(Math.floor(values[0] ?? 0));
     case "SQRT":
       const sqrtVal = values[0] ?? 0;
-      if (sqrtVal < 0) return "#ERROR";
+      if (sqrtVal < 0) return "#ERROR: Cannot calculate square root of negative number";
       return serializeNumber(Math.sqrt(sqrtVal));
+    case "POWER":
+      if (values.length < 2) return "#ERROR: POWER requires base and exponent";
+      return serializeNumber(Math.pow(values[0], values[1]));
+    case "EXP":
+      return serializeNumber(Math.exp(values[0] ?? 0));
+    case "LN":
+      if ((values[0] ?? 0) <= 0) return "#ERROR: LN requires positive number";
+      return serializeNumber(Math.log(values[0] ?? 0));
+    case "LOG":
+      if (values.length === 1) {
+        if ((values[0] ?? 0) <= 0) return "#ERROR: LOG requires positive number";
+        return serializeNumber(Math.log10(values[0]));
+      }
+      if ((values[0] ?? 0) <= 0 || (values[1] ?? 0) <= 0) return "#ERROR: LOG requires positive numbers";
+      return serializeNumber(Math.log(values[1]) / Math.log(values[0]));
+    case "LOG10":
+      if ((values[0] ?? 0) <= 0) return "#ERROR: LOG10 requires positive number";
+      return serializeNumber(Math.log10(values[0]));
+    case "ROUNDDOWN":
+      if (values.length < 1) return "#ERROR: ROUNDDOWN requires a number";
+      const rdNum = values[0] ?? 0;
+      const rdDecimals = Math.floor(values[1] ?? 0);
+      const rdFactor = Math.pow(10, rdDecimals);
+      return serializeNumber(Math.floor(rdNum * rdFactor) / rdFactor);
+    case "ROUNDUP":
+      if (values.length < 1) return "#ERROR: ROUNDUP requires a number";
+      const ruNum = values[0] ?? 0;
+      const ruDecimals = Math.floor(values[1] ?? 0);
+      const ruFactor = Math.pow(10, ruDecimals);
+      return serializeNumber(Math.ceil(ruNum * ruFactor) / ruFactor);
+    case "PI":
+      return serializeNumber(Math.PI);
+    case "TODAY":
+      return new Date().toISOString().slice(0, 10);
+    case "NOW":
+      return new Date().toISOString().slice(0, 19).replace("T", " ");
     default:
       return "#ERROR";
   }
@@ -289,6 +325,128 @@ const evaluateConditionValue = (
   return trimmed;
 };
 
+const getTextValues = (
+  argsText: string,
+  rows: WorkspaceSheetCell[][],
+  seen: Set<string>,
+): string[] => {
+  const parts = argsText
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const textValues: string[] = [];
+  for (const part of parts) {
+    const range = RANGE_RE.exec(part);
+    if (range?.[1] && range[2]) {
+      for (const coord of resolveRange(range[1], range[2])) {
+        const value = evaluateCellDisplayValue(coord.row, coord.col, rows, seen);
+        textValues.push(value);
+      }
+      continue;
+    }
+
+    const coord = parseCellRef(part);
+    if (coord) {
+      const value = evaluateCellDisplayValue(coord.row, coord.col, rows, seen);
+      textValues.push(value);
+      continue;
+    }
+
+    if (/^["'].*["']$/.test(part)) {
+      textValues.push(part.slice(1, -1));
+    } else {
+      textValues.push(part);
+    }
+  }
+  return textValues;
+};
+
+const evaluateTextFormula = (
+  fnName: string,
+  argsText: string,
+  rows: WorkspaceSheetCell[][],
+  seen: Set<string>,
+): string => {
+  const textParts = getTextValues(argsText, rows, seen);
+  const first = textParts[0] ?? "";
+  const second = textParts[1] ?? "";
+
+  switch (fnName.toUpperCase()) {
+    case "LEN":
+      return String(first.length);
+    case "TRIM":
+      return first.trim();
+    case "LOWER":
+      return first.toLowerCase();
+    case "UPPER":
+      return first.toUpperCase();
+    case "PROPER":
+      return first.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+    case "LEFT":
+      if (textParts.length < 2) return "#ERROR: LEFT requires text and number of characters";
+      const leftNum = Math.floor(Number(textParts[1]) || 1);
+      return first.slice(0, leftNum);
+    case "RIGHT":
+      if (textParts.length < 2) return "#ERROR: RIGHT requires text and number of characters";
+      const rightNum = Math.floor(Number(textParts[1]) || 1);
+      return first.slice(-rightNum);
+    case "MID":
+      if (textParts.length < 3) return "#ERROR: MID requires text, start, and length";
+      const midStart = Math.max(1, Math.floor(Number(textParts[1]) || 1)) - 1;
+      const midLen = Math.floor(Number(textParts[2]) || 1);
+      return first.slice(midStart, midStart + midLen);
+    case "CONCATENATE":
+    case "CONCAT":
+      return textParts.join("");
+    case "REPT":
+      if (textParts.length < 2) return "#ERROR: REPT requires text and number";
+      const reptTimes = Math.max(0, Math.floor(Number(textParts[1]) || 1));
+      if (reptTimes > 1000) return "#ERROR: REPT count too large";
+      return first.repeat(reptTimes);
+    case "SUBSTITUTE":
+      if (textParts.length < 3) return "#ERROR: SUBSTITUTE requires text, old, new";
+      return first.split(textParts[1]).join(textParts[2]);
+    case "SEARCH":
+    case "FIND":
+      if (textParts.length < 2) return "#ERROR: SEARCH requires text and search term";
+      const searchPos = first.toLowerCase().indexOf(textParts[1].toLowerCase());
+      if (searchPos === -1) return "#ERROR: Substring not found";
+      return String(searchPos + 1);
+    case "VALUE":
+      const numVal = Number(first.replace(/[^0-9.-]/g, ""));
+      return Number.isNaN(numVal) ? "#ERROR: Cannot convert to number" : serializeNumber(numVal);
+    case "ISBLANK":
+      return first === "" ? "TRUE" : "FALSE";
+    case "ISNUMBER":
+      return !Number.isNaN(Number(first)) && first.trim() !== "" ? "TRUE" : "FALSE";
+    case "ISTEXT":
+      return typeof first === "string" && first.trim() !== "" && Number.isNaN(Number(first)) ? "TRUE" : "FALSE";
+    case "ISERROR":
+      return first.startsWith("#ERROR") || first === "#CYCLE" || first === "#REF" ? "TRUE" : "FALSE";
+    case "IFERROR":
+      if (first.startsWith("#ERROR") || first === "#CYCLE" || first === "#REF") {
+        return textParts[1] ?? "0";
+      }
+      return first;
+    case "AND":
+      return textParts.every((p) => p && p.toUpperCase() !== "FALSE" && p !== "0") ? "TRUE" : "FALSE";
+    case "OR":
+      return textParts.some((p) => p && p.toUpperCase() !== "FALSE" && p !== "0") ? "TRUE" : "FALSE";
+    case "NOT":
+      return first && first.toUpperCase() !== "FALSE" && first !== "0" ? "FALSE" : "TRUE";
+    default:
+      return "#ERROR";
+  }
+};
+
+const textFunctions = new Set([
+  "LEN", "TRIM", "LOWER", "UPPER", "PROPER", "LEFT", "RIGHT", "MID",
+  "CONCATENATE", "CONCAT", "REPT", "SUBSTITUTE", "SEARCH", "FIND",
+  "VALUE", "ISBLANK", "ISNUMBER", "ISTEXT", "ISERROR", "IFERROR",
+  "AND", "OR", "NOT",
+]);
+
 export const evaluateFormula = (
   formula: string,
   rows: WorkspaceSheetCell[][],
@@ -309,6 +467,9 @@ export const evaluateFormula = (
     const fnName = fnMatch[1].toUpperCase();
     if (fnName === "IF") {
       return evaluateIfFormula(fnMatch[2], rows, seen);
+    }
+    if (textFunctions.has(fnName)) {
+      return evaluateTextFormula(fnName, fnMatch[2], rows, seen);
     }
     return evaluateFunctionFormula(fnName, fnMatch[2], rows, seen);
   }
