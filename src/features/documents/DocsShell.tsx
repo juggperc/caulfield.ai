@@ -238,8 +238,8 @@ export const DocsShell = () => {
     setSelectionInstruction("");
   };
 
-  const assistantInputDisabled =
-    (workspaceTab === "docs" && !selectedDoc) ||
+const assistantInputDisabled =
+    (workspaceTab === "docs" && !selectedId) ||
     !chatInput.trim() ||
     status === "submitted" ||
     status === "streaming";
@@ -561,7 +561,7 @@ export const DocsShell = () => {
           <MessageFeed messages={messages} status={status} error={error} />
           <div className="shrink-0 border-t border-border p-2">
             <div className="flex items-end gap-2 rounded-lg border border-border bg-card p-2">
-              <textarea
+<textarea
                 ref={docsAssistTextareaRef}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -572,7 +572,7 @@ export const DocsShell = () => {
                     : "Ask to edit the document…"
                 }
                 rows={2}
-                disabled={workspaceTab === "docs" && !selectedDoc}
+                disabled={workspaceTab === "docs" && !selectedId}
                 className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent text-[0.9375rem] leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50"
                 aria-label="Workspace assistant input"
               />
