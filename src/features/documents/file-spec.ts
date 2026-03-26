@@ -157,12 +157,107 @@ export type SheetCellsOutput = {
 };
 
 export const isSheetCellsOutput = (value: unknown): value is SheetCellsOutput => {
-  if (!value || typeof value !== "object") return false;
-  const o = value as Record<string, unknown>;
-  return (
-    o.kind === "sheet_cells" &&
-    typeof o.sheetId === "string" &&
-    typeof o.sheetRevision === "number" &&
-    Array.isArray(o.cells)
-  );
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return (
+ o.kind === "sheet_cells" &&
+ typeof o.sheetId === "string" &&
+ typeof o.sheetRevision === "number" &&
+ Array.isArray(o.cells)
+ );
+};
+
+export type RangeDescriptionOutput = {
+ kind: "range_description";
+ sheetId: string;
+ startRow: number;
+ startCol: number;
+ endRow: number;
+ endCol: number;
+ headers: string[];
+ types: string[];
+ stats: { totalCells: number; emptyCells: number; numericCells: number; textCells: number };
+};
+
+export const isRangeDescriptionOutput = (value: unknown): value is RangeDescriptionOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "range_description" && typeof o.sheetId === "string";
+};
+
+export type DimensionsOutput = {
+ kind: "dimensions";
+ sheetId: string;
+ maxRow: number;
+ maxCol: number;
+ rowCount: number;
+ colCount: number;
+};
+
+export const isDimensionsOutput = (value: unknown): value is DimensionsOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "dimensions" && typeof o.sheetId === "string";
+};
+
+export type HeadersOutput = {
+ kind: "headers";
+ sheetId: string;
+ headers: string[];
+};
+
+export const isHeadersOutput = (value: unknown): value is HeadersOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "headers" && typeof o.sheetId === "string";
+};
+
+export type FormulaSuggestionOutput = {
+ kind: "formula_suggestion";
+ suggestion: string;
+ explanation: string;
+};
+
+export const isFormulaSuggestionOutput = (value: unknown): value is FormulaSuggestionOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "formula_suggestion" && typeof o.suggestion === "string";
+};
+
+export type DocInsertAfterOutput = {
+ kind: "doc_insert_after";
+ docRevision: number;
+ afterText: string;
+ content: unknown;
+};
+
+export const isDocInsertAfterOutput = (value: unknown): value is DocInsertAfterOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "doc_insert_after" && typeof o.docRevision === "number";
+};
+
+export type DocReplaceTextOutput = {
+ kind: "doc_replace_text";
+ docRevision: number;
+ findText: string;
+ replaceWith: string;
+};
+
+export const isDocReplaceTextOutput = (value: unknown): value is DocReplaceTextOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "doc_replace_text" && typeof o.docRevision === "number";
+};
+
+export type DocCurrentRevisionOutput = {
+ kind: "doc_current_revision";
+ revision: number;
+ note?: string;
+};
+
+export const isDocCurrentRevisionOutput = (value: unknown): value is DocCurrentRevisionOutput => {
+ if (!value || typeof value !== "object") return false;
+ const o = value as Record<string, unknown>;
+ return o.kind === "doc_current_revision" && typeof o.revision === "number";
 };

@@ -1,14 +1,14 @@
 import { createWorkspaceReadToolset } from "@/features/ai-agent/workspace-read-tools";
 import { createDocumentCreationToolset } from "@/features/documents/document-creation-tools";
-import { createDocsEditorToolset } from "@/features/documents/docs-editor-tools";
+import { createSheetsToolset } from "@/features/documents/enhanced-tools";
 import {
-  MAX_CELL_LENGTH,
-  MAX_PLAIN_TEXT_IN_REQUEST,
-  WORKSPACE_CHAT_INDEX_EXCERPT,
-  WORKSPACE_SHEET_COLS,
-  WORKSPACE_SHEET_ROWS,
+ MAX_CELL_LENGTH,
+ MAX_PLAIN_TEXT_IN_REQUEST,
+ WORKSPACE_CHAT_INDEX_EXCERPT,
+ WORKSPACE_SHEET_COLS,
+ WORKSPACE_SHEET_ROWS,
 } from "@/features/documents/limits";
-import { createSheetsToolset } from "@/features/documents/sheets-tools";
+import { createDocsEditorToolset } from "@/features/documents/enhanced-tools";
 import { createContext7Toolset } from "@/features/integrations/context7-tools";
 import { createExaSearchToolset } from "@/features/integrations/exa-tools";
 import { createGithubToolset } from "@/features/integrations/github-tools";
