@@ -14,6 +14,7 @@ import {
   Pencil,
   Quote,
   Sparkles,
+  Calculator,
 } from "lucide-react";
 import {
   useCallback,
@@ -25,6 +26,7 @@ import {
 import { createPortal } from "react-dom";
 import { buildAiContextActions, coneActionsFrom } from "./build-ai-context-actions";
 import { useAiWorkspace } from "./ai-workspace-context";
+import { setPendingCellRef, getCellRef } from "@/features/documents/cell-ref-context";
 
 const MENU_W = 280;
 const MENU_PAD = 8;
@@ -42,6 +44,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   quote: Quote,
   "file-edit": FileEdit,
   "file-text": FileText,
+  calculator: Calculator,
 };
 
 const shouldUseNativeContextMenu = (target: EventTarget | null): boolean => {
@@ -61,6 +64,7 @@ export const GlobalContextMenuLayer = () => {
   const firstItemRef = useRef<HTMLButtonElement>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [cellRef, setCellRef] = useState<string | null>(null);
 
   const closeMenu = useCallback(() => {
     setOpen(false);
@@ -76,6 +80,17 @@ export const GlobalContextMenuLayer = () => {
 
       e.preventDefault();
       e.stopPropagation();
+
+      const cellInput = (t as Element).closest("input[aria-label*='Cell']");
+      let detectedCellRef: string | null = null;
+      if (cellInput && cellInput instanceof HTMLInputElement) {
+        const match = cellInput.getAttribute("aria-label")?.match(/Cell ([A-Z]+\d+)/i);
+        if (match?.[1]) {
+          detectedCellRef = match[1];
+        }
+      }
+      setCellRef(detectedCellRef);
+
       const sel = window.getSelection()?.toString() ?? "";
       setSelectionAtOpen(sel);
       let x = e.clientX;
@@ -135,7 +150,7 @@ export const GlobalContextMenuLayer = () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onPointer);
     };
-  }, [open, closeMenu, panel, selectionAtOpen, onPanelChange]);
+  }, [open, closeMenu, panel, selectionAtOpen, onPanelChange, cellRef]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -153,6 +168,26 @@ export const GlobalContextMenuLayer = () => {
     onPanelChange,
     closeMenu,
   });
+
+  if (cellRef) {
+    const formulaAction = {
+      id: "build-formula",
+      label: `Build formula for ${cellRef}`,
+      icon: "calculator" as const,
+      run: () => {
+        setPendingCellRef({ ref: cellRef, row: 0, col: 0 });
+        window.dispatchEvent(new CustomEvent("open-formula-builder", { detail: { cellRef } }));
+        closeMenu();
+      },
+    };
+    const insertIdx = actions.findIndex((a) => a.id === "ask-chat");
+    if (insertIdx >= 0) {
+      actions.splice(insertIdx, 0, formulaAction);
+    } else {
+      actions.unshift(formulaAction);
+    }
+  }
+
   const cone = coneActionsFrom(actions);
   const coneIds = new Set(cone.map((c) => c.id));
 

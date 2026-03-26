@@ -27,6 +27,7 @@ import { WorkspaceLibrarySync } from "@/features/shell/WorkspaceLibrarySync";
 import { WorkspaceSnapshotsRegistrar } from "@/features/shell/WorkspaceSnapshotsRegistrar";
 import { OfflineBanner } from "@/features/offline/OfflineBanner";
 import { OfflineProvider } from "@/features/offline/offline-context";
+import { FormulaBuilderDialog } from "@/features/documents/FormulaBuilderDialog";
 import { useCallback, useEffect, useState } from "react";
 
 export const AppLayout = () => {
@@ -120,6 +121,7 @@ return (
              </div>
             </div>
             <GlobalContextMenuLayer />
+            <FormulaBuilderDialog />
            </AiWorkspaceProvider>
           </OfflineProvider>
          </LibraryProvider>
