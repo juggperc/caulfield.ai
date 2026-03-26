@@ -286,20 +286,20 @@ export const Sidebar = memo(({
                       />
                       <span className="truncate">{c.title || "New chat"}</span>
                     </button>
-                    <button
-                      type="button"
-                      className="flex shrink-0 items-center rounded-md px-1.5 text-muted-foreground opacity-70 hover:bg-sidebar/60 hover:text-destructive hover:opacity-100"
-                      aria-label={`Delete chat ${c.title || "New chat"}`}
-                      onClick={(e) => {
+<button
+                       type="button"
+                       className="flex shrink-0 items-center rounded-md px-1.5 text-muted-foreground opacity-70 hover:bg-sidebar/60 hover:text-destructive hover:opacity-100 md:opacity-0 md:group-hover:opacity-70"
+                       aria-label={`Delete chat ${c.title || "New chat"}`}
+                       onClick={(e) => {
                         e.stopPropagation();
                         setPendingDelete({
-                          id: c.id,
-                          title: c.title || "New chat",
+                         id: c.id,
+                         title: c.title || "New chat",
                         });
-                      }}
-                    >
-                      <Trash2 className="size-3.5" aria-hidden />
-                    </button>
+                       }}
+                     >
+                       <Trash2 className="size-3.5" aria-hidden />
+                     </button>
                   </div>
                 );
               })}

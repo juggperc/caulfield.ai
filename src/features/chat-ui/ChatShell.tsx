@@ -587,17 +587,18 @@ const ChatShellInner = ({
       ) : null}
       <MessageFeed messages={messages} status={status} error={error} />
       <PremiumUpgradePromo />
-      <ChatInputBar
-        status={status}
-        onSend={handleSend}
-        onStop={stop}
-        onClear={handleClear}
-        disableClear={messages.length === 0}
-        webSearchEnabled={webSearchEnabled}
-        onToggleWebSearch={handleToggleWebSearch}
-        deepResearchEnabled={deepResearchEnabled}
-        onToggleDeepResearch={handleToggleDeepResearch}
-      />
+<ChatInputBar
+ status={status}
+ convId={convId}
+ onSend={handleSend}
+ onStop={stop}
+ onClear={handleClear}
+ disableClear={messages.length === 0}
+ webSearchEnabled={webSearchEnabled}
+ onToggleWebSearch={handleToggleWebSearch}
+ deepResearchEnabled={deepResearchEnabled}
+ onToggleDeepResearch={handleToggleDeepResearch}
+/>
     </div>
   );
 };

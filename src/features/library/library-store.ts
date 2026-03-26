@@ -2,14 +2,15 @@ import { getAccountStorageScope } from "@/features/auth/storage-scope";
 import type { FileSpecPayload } from "@/features/documents/file-spec";
 import type { ImageSpecPayload } from "@/features/images/image-payload";
 import {
-  idbDeleteItem,
-  idbGetAllMeta,
-  idbGetBlob,
-  idbPutMetaAndBlob,
-  libraryDatabaseNameForScope,
-  openLibraryDb,
+ idbDeleteItem,
+ idbGetAllMeta,
+ idbGetBlob,
+ idbPutMetaAndBlob,
+ libraryDatabaseNameForScope,
+ openLibraryDb,
 } from "./idb";
 import type { LibraryItemMeta } from "./types";
+import JSZip from "jszip";
 
 const dbPromises = new Map<string, Promise<IDBDatabase>>();
 
@@ -203,6 +204,30 @@ export const addLibraryGeneratedImage = async (
     dedupeKey,
   };
 
-  await idbPutMetaAndBlob(db, { ...meta }, buffer);
-  return meta;
+await idbPutMetaAndBlob(db, { ...meta }, buffer);
+ return meta;
+};
+
+export const exportAllLibraryItems = async (): Promise<Blob> => {
+ const items = await listLibraryItemsSorted();
+ const zip = new JSZip();
+
+ for (const item of items) {
+ const blob = await getLibraryBlob(item.id);
+ if (!blob) continue;
+
+ const safeName = item.filename.replace(/[<>:"/\\|?*]/g, "_");
+ zip.file(safeName, blob);
+ }
+
+ const manifest = items.map((item) => ({
+ filename: item.filename,
+ source: item.source,
+ mimeType: item.mimeType,
+ createdAt: new Date(item.createdAt).toISOString(),
+ updatedAt: new Date(item.updatedAt).toISOString(),
+ }));
+ zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+
+ return zip.generateAsync({ type: "blob" });
 };

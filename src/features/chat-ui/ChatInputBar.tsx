@@ -5,19 +5,20 @@ import { Button } from "@/components/ui/button";
 import { readChatMode } from "@/features/ai-agent/storage";
 import { useOpenRouterUi } from "@/features/openrouter/OpenRouterUiProvider";
 import {
-  clearPendingChatInput,
-  peekPendingChatInput,
+ clearPendingChatInput,
+ peekPendingChatInput,
 } from "@/features/ai-context-menu/ai-pending-prompts";
+import { saveChatInput, loadChatInput } from "@/features/chat-ui/chat-input-store";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
 import { ArrowUp, Loader2, X } from "lucide-react";
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
+ useCallback,
+ useEffect,
+ useLayoutEffect,
+ useMemo,
+ useRef,
+ useState,
 } from "react";
 import { ChatResearchMemoryDialogs } from "./ChatResearchMemoryDialogs";
 import { ModelChipButton } from "./ModelChipButton";
@@ -28,38 +29,44 @@ const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGES = 4;
 
 type ChatInputBarProps = {
-  readonly status: ChatStatus;
-  readonly onSend: (text: string, files?: File[]) => Promise<void>;
-  readonly onStop: () => Promise<void>;
-  readonly onClear: () => void;
-  readonly disableClear: boolean;
-  readonly webSearchEnabled: boolean;
-  readonly onToggleWebSearch: () => void;
-  readonly deepResearchEnabled: boolean;
-  readonly onToggleDeepResearch: () => void;
+ readonly status: ChatStatus;
+ readonly convId: string | null;
+ readonly onSend: (text: string, files?: File[]) => Promise<void>;
+ readonly onStop: () => Promise<void>;
+ readonly onClear: () => void;
+ readonly disableClear: boolean;
+ readonly webSearchEnabled: boolean;
+ readonly onToggleWebSearch: () => void;
+ readonly deepResearchEnabled: boolean;
+ readonly onToggleDeepResearch: () => void;
 };
 
 export const ChatInputBar = ({
-  status,
-  onSend,
-  onStop,
-  onClear,
-  disableClear,
-  webSearchEnabled,
-  onToggleWebSearch,
-  deepResearchEnabled,
-  onToggleDeepResearch,
+ status,
+ convId,
+ onSend,
+ onStop,
+ onClear,
+ disableClear,
+ webSearchEnabled,
+ onToggleWebSearch,
+ deepResearchEnabled,
+ onToggleDeepResearch,
 }: ChatInputBarProps) => {
-  const initialInput = useMemo(() => {
-    const pending = peekPendingChatInput();
-    if (!pending) return { text: "", focus: false };
-    return { text: pending.text, focus: false };
-  }, []);
-  const [input, setInput] = useState(initialInput.text);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { selectionEpoch } = useOpenRouterUi();
+ const initialInput = useMemo(() => {
+ const pending = peekPendingChatInput();
+ if (pending) return { text: pending.text, focus: false };
+ if (convId) {
+  const restored = loadChatInput(convId);
+  if (restored) return { text: restored, focus: false };
+ }
+ return { text: "", focus: false };
+ }, [convId]);
+ const [input, setInput] = useState(initialInput.text);
+ const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+ const textareaRef = useRef<HTMLTextAreaElement>(null);
+ const fileInputRef = useRef<HTMLInputElement>(null);
+ const { selectionEpoch } = useOpenRouterUi();
 
   const isBusy = status === "submitted" || status === "streaming";
   void selectionEpoch;
@@ -74,18 +81,24 @@ export const ChatInputBar = ({
         ? `At most ${MAX_IMAGES} images`
         : "Attach image";
 
-  useLayoutEffect(() => {
-    clearPendingChatInput();
-    if (!initialInput.focus) return;
-    textareaRef.current?.focus();
-  }, [initialInput.focus]);
+useLayoutEffect(() => {
+ clearPendingChatInput();
+ if (!initialInput.focus) return;
+ textareaRef.current?.focus();
+ }, [initialInput.focus]);
 
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  }, [input]);
+ useEffect(() => {
+ if (convId) {
+  saveChatInput(convId, input);
+ }
+ }, [convId, input]);
+
+ useEffect(() => {
+ const el = textareaRef.current;
+ if (!el) return;
+ el.style.height = "auto";
+ el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+ }, [input]);
 
   const handleAttachClick = useCallback(() => {
     if (readChatMode() === "free") return;
@@ -117,15 +130,18 @@ export const ChatInputBar = ({
     input.trim() || (filesActive && pendingFiles.length > 0),
   );
 
-  const submitMessage = async () => {
-    if (!canSend || isBusy) return;
-    const trimmed = input.trim();
-    const files =
-      filesActive && pendingFiles.length > 0 ? [...pendingFiles] : undefined;
-    setInput("");
-    setPendingFiles([]);
-    await onSend(trimmed, files);
-  };
+const submitMessage = async () => {
+ if (!canSend || isBusy) return;
+ const trimmed = input.trim();
+ const files =
+  filesActive && pendingFiles.length > 0 ? [...pendingFiles] : undefined;
+ setInput("");
+ setPendingFiles([]);
+ if (convId) {
+  saveChatInput(convId, "");
+ }
+ await onSend(trimmed, files);
+ };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

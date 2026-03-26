@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { getLibraryBlob } from "@/features/library/library-store";
 import { WorkspacePanelHeader } from "@/features/shell/WorkspacePanelHeader";
-import { FileUp } from "lucide-react";
-import { useRef } from "react";
+import { FileUp, Download } from "lucide-react";
+import { useRef, useState } from "react";
 import { useLibrary } from "./library-context";
 import { LibraryItemCard } from "./LibraryItemCard";
 
@@ -19,61 +19,95 @@ const formatRelative = (ts: number) => {
 };
 
 export const LibraryShell = () => {
-  const { items, hydrated, addUpload, removeItem } = useLibrary();
-  const inputRef = useRef<HTMLInputElement>(null);
+ const { items, hydrated, addUpload, removeItem, exportAll } = useLibrary();
+ const inputRef = useRef<HTMLInputElement>(null);
+ const [exporting, setExporting] = useState(false);
 
-  const handlePickFiles = () => {
-    inputRef.current?.click();
-  };
+ const handlePickFiles = () => {
+  inputRef.current?.click();
+ };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = e.target.files;
-    if (!list?.length) return;
-    void (async () => {
-      for (const f of Array.from(list)) {
-        await addUpload(f);
-      }
-      e.target.value = "";
-    })();
-  };
+ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const list = e.target.files;
+  if (!list?.length) return;
+  void (async () => {
+   for (const f of Array.from(list)) {
+    await addUpload(f);
+   }
+   e.target.value = "";
+  })();
+ };
 
-  const handleDownload = (id: string, filename: string) => {
-    void (async () => {
-      const blob = await getLibraryBlob(id);
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.rel = "noopener";
-      a.click();
-      URL.revokeObjectURL(url);
-    })();
-  };
+ const handleDownload = (id: string, filename: string) => {
+  void (async () => {
+   const blob = await getLibraryBlob(id);
+   if (!blob) return;
+   const url = URL.createObjectURL(blob);
+   const a = document.createElement("a");
+   a.href = url;
+   a.download = filename;
+   a.rel = "noopener";
+   a.click();
+   URL.revokeObjectURL(url);
+  })();
+ };
+
+ const handleExportAll = () => {
+  void (async () => {
+   if (items.length === 0) return;
+   setExporting(true);
+   try {
+    const blob = await exportAll();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `library-export-${new Date().toISOString().slice(0, 10)}.zip`;
+    a.rel = "noopener";
+    a.click();
+    URL.revokeObjectURL(url);
+   } finally {
+    setExporting(false);
+   }
+  })();
+ };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-muted">
-      <WorkspacePanelHeader title="Library">
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          className="sr-only"
-          aria-hidden
-          onChange={handleFileChange}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={handlePickFiles}
-          aria-label="Upload files to library"
-        >
-          <FileUp className="size-3.5 opacity-70" aria-hidden />
-          Upload
-        </Button>
-      </WorkspacePanelHeader>
+<WorkspacePanelHeader title="Library">
+ <input
+  ref={inputRef}
+  type="file"
+  multiple
+  className="sr-only"
+  aria-hidden
+  onChange={handleFileChange}
+ />
+ <div className="flex gap-2">
+  <Button
+   type="button"
+   variant="outline"
+   size="sm"
+   className="gap-1.5"
+   onClick={handleExportAll}
+   disabled={exporting || items.length === 0}
+   aria-label="Export all library items as ZIP"
+  >
+   <Download className="size-3.5 opacity-70" aria-hidden />
+   Export All
+  </Button>
+  <Button
+   type="button"
+   variant="outline"
+   size="sm"
+   className="gap-1.5"
+   onClick={handlePickFiles}
+   aria-label="Upload files to library"
+  >
+   <FileUp className="size-3.5 opacity-70" aria-hidden />
+   Upload
+  </Button>
+ </div>
+</WorkspacePanelHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 md:p-5">
         {!hydrated ? (

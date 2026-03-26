@@ -17,14 +17,16 @@ import { NotesShell } from "@/features/notes/NotesShell";
 import { ResearchProvider } from "@/features/research/research-provider";
 import { AccountSettings } from "@/features/auth/AccountSettings";
 import {
-  MAIN_OFFSET_CLASS,
-  Sidebar,
+ MAIN_OFFSET_CLASS,
+ Sidebar,
 } from "@/features/sidebar/components/Sidebar";
 import { isAppPanel } from "@/features/playbooks/playbook-events";
 import type { AppPanel } from "@/features/shell/panel";
 import { MobileWorkspaceBar } from "@/features/shell/MobileWorkspaceBar";
 import { WorkspaceLibrarySync } from "@/features/shell/WorkspaceLibrarySync";
 import { WorkspaceSnapshotsRegistrar } from "@/features/shell/WorkspaceSnapshotsRegistrar";
+import { OfflineBanner } from "@/features/offline/OfflineBanner";
+import { OfflineProvider } from "@/features/offline/offline-context";
 import { useCallback, useEffect, useState } from "react";
 
 export const AppLayout = () => {
@@ -58,73 +60,76 @@ export const AppLayout = () => {
       window.removeEventListener("caulfield:workspace-panel", onWorkspacePanel);
   }, [handlePanelChange]);
 
-  return (
-    <SessionProvider>
-      <RequireAuth>
-        <OpenRouterUiProvider>
-          <NotesProvider>
-            <MemoryProvider>
-              <ResearchProvider>
-                <DocsProvider>
-                  <SheetsProvider>
-                    <LibraryProvider>
-                      <WorkspaceSnapshotsRegistrar />
-                      <WorkspaceLibrarySync />
-                      <AiWorkspaceProvider
-                        panel={panel}
-                        onPanelChange={handlePanelChange}
-                      >
-                        <div className="flex min-h-screen min-h-[100dvh] bg-background text-foreground">
-                          {mobileNavOpen ? (
-                            <button
-                              type="button"
-                              className="fixed inset-0 z-40 bg-black/40 md:hidden"
-                              aria-label="Close menu"
-                              onClick={() => setMobileNavOpen(false)}
-                            />
-                          ) : null}
-                          <Sidebar
-                            activePanel={panel}
-                            onPanelChange={handlePanelChange}
-                            mobileNavOpen={mobileNavOpen}
-                            onRequestClose={() => setMobileNavOpen(false)}
-                          />
-                          <div
-                            className={`flex min-h-0 min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
-                          >
-                            <MobileWorkspaceBar
-                              panel={panel}
-                              navOpen={mobileNavOpen}
-                              onOpenNav={() => setMobileNavOpen(true)}
-                            />
-                            <main
-                              data-ai-workspace
-                              className="flex min-h-0 min-w-0 flex-1 flex-col"
-                            >
-                              {panel === "chat" ? (
-                                <ChatShell />
-                              ) : panel === "notes" ? (
-                                <NotesShell />
-                              ) : panel === "docs" ? (
-                                <DocsShell />
-                              ) : panel === "library" ? (
-                                <LibraryShell />
-                              ) : (
-                                <AccountSettings />
-                              )}
-                            </main>
-                          </div>
-                        </div>
-                        <GlobalContextMenuLayer />
-                      </AiWorkspaceProvider>
-                    </LibraryProvider>
-                  </SheetsProvider>
-                </DocsProvider>
-              </ResearchProvider>
-            </MemoryProvider>
-          </NotesProvider>
-        </OpenRouterUiProvider>
-      </RequireAuth>
-    </SessionProvider>
-  );
+return (
+ <SessionProvider>
+  <RequireAuth>
+   <OpenRouterUiProvider>
+    <NotesProvider>
+     <MemoryProvider>
+      <ResearchProvider>
+       <DocsProvider>
+        <SheetsProvider>
+         <LibraryProvider>
+          <OfflineProvider>
+           <WorkspaceSnapshotsRegistrar />
+           <WorkspaceLibrarySync />
+           <AiWorkspaceProvider
+            panel={panel}
+            onPanelChange={handlePanelChange}
+           >
+            <div className="flex min-h-screen min-h-[100dvh] bg-background text-foreground">
+             {mobileNavOpen ? (
+ <button
+  type="button"
+  className="fixed inset-0 z-40 bg-black/40 md:hidden"
+  aria-label="Close menu"
+  onClick={() => setMobileNavOpen(false)}
+ />
+             ) : null}
+             <Sidebar
+              activePanel={panel}
+              onPanelChange={handlePanelChange}
+              mobileNavOpen={mobileNavOpen}
+              onRequestClose={() => setMobileNavOpen(false)}
+             />
+             <div
+              className={`flex min-h-0 min-w-0 flex-1 flex-col ${MAIN_OFFSET_CLASS}`}
+             >
+              <MobileWorkspaceBar
+               panel={panel}
+               navOpen={mobileNavOpen}
+               onOpenNav={() => setMobileNavOpen(true)}
+              />
+              <OfflineBanner />
+              <main
+               data-ai-workspace
+               className="flex min-h-0 min-w-0 flex-1 flex-col"
+              >
+               {panel === "chat" ? (
+ <ChatShell />
+               ) : panel === "notes" ? (
+ <NotesShell />
+               ) : panel === "docs" ? (
+ <DocsShell />
+               ) : panel === "library" ? (
+ <LibraryShell />
+               ) : (
+ <AccountSettings />
+               )}
+              </main>
+             </div>
+            </div>
+            <GlobalContextMenuLayer />
+           </AiWorkspaceProvider>
+          </OfflineProvider>
+         </LibraryProvider>
+        </SheetsProvider>
+       </DocsProvider>
+      </ResearchProvider>
+     </MemoryProvider>
+    </NotesProvider>
+   </OpenRouterUiProvider>
+  </RequireAuth>
+ </SessionProvider>
+);
 };

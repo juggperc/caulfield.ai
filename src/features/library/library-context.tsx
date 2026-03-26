@@ -11,36 +11,38 @@ import {
   useState,
 } from "react";
 import {
-  addLibraryGenerated,
-  addLibraryGeneratedImage,
-  addLibraryUpload,
-  deleteLibraryItem,
-  listLibraryItemsSorted,
-  upsertLibraryWorkspaceExport,
+ addLibraryGenerated,
+ addLibraryGeneratedImage,
+ addLibraryUpload,
+ deleteLibraryItem,
+ listLibraryItemsSorted,
+ upsertLibraryWorkspaceExport,
+ exportAllLibraryItems,
 } from "./library-store";
 import type { LibraryItemMeta } from "./types";
 
 type LibraryContextValue = {
-  items: LibraryItemMeta[];
-  hydrated: boolean;
-  refresh: () => Promise<void>;
-  addUpload: (file: File) => Promise<void>;
-  removeItem: (id: string) => Promise<void>;
-  tryAddGeneratedFromSpec: (
-    dedupeKey: string,
-    payload: FileSpecPayload,
-    blob: Blob,
-  ) => Promise<void>;
-  tryAddGeneratedImage: (
-    dedupeKey: string,
-    payload: ImageSpecPayload,
-  ) => Promise<void>;
-  upsertWorkspaceExport: (
-    dedupeKey: string,
-    filename: string,
-    mimeType: string,
-    blob: Blob,
-  ) => Promise<void>;
+items: LibraryItemMeta[];
+hydrated: boolean;
+refresh: () => Promise<void>;
+addUpload: (file: File) => Promise<void>;
+removeItem: (id: string) => Promise<void>;
+tryAddGeneratedFromSpec: (
+ dedupeKey: string,
+ payload: FileSpecPayload,
+ blob: Blob,
+) => Promise<void>;
+tryAddGeneratedImage: (
+ dedupeKey: string,
+ payload: ImageSpecPayload,
+) => Promise<void>;
+upsertWorkspaceExport: (
+ dedupeKey: string,
+ filename: string,
+ mimeType: string,
+ blob: Blob,
+) => Promise<void>;
+exportAll: () => Promise<Blob>;
 };
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -92,41 +94,47 @@ export const LibraryProvider = ({ children }: { children: React.ReactNode }) => 
     [refresh],
   );
 
-  const upsertWorkspaceExport = useCallback(
-    async (
-      dedupeKey: string,
-      filename: string,
-      mimeType: string,
-      blob: Blob,
-    ) => {
-      await upsertLibraryWorkspaceExport(dedupeKey, filename, mimeType, blob);
-      await refresh();
-    },
-    [refresh],
-  );
+const upsertWorkspaceExport = useCallback(
+ async (
+  dedupeKey: string,
+  filename: string,
+  mimeType: string,
+  blob: Blob,
+ ) => {
+  await upsertLibraryWorkspaceExport(dedupeKey, filename, mimeType, blob);
+  await refresh();
+ },
+ [refresh],
+ );
 
-  const value = useMemo(
-    () => ({
-      items,
-      hydrated,
-      refresh,
-      addUpload,
-      removeItem,
-      tryAddGeneratedFromSpec,
-      tryAddGeneratedImage,
-      upsertWorkspaceExport,
-    }),
-    [
-      items,
-      hydrated,
-      refresh,
-      addUpload,
-      removeItem,
-      tryAddGeneratedFromSpec,
-      tryAddGeneratedImage,
-      upsertWorkspaceExport,
-    ],
-  );
+ const exportAll = useCallback(async () => {
+  return exportAllLibraryItems();
+ }, []);
+
+ const value = useMemo(
+ () => ({
+  items,
+  hydrated,
+  refresh,
+  addUpload,
+  removeItem,
+  tryAddGeneratedFromSpec,
+  tryAddGeneratedImage,
+  upsertWorkspaceExport,
+  exportAll,
+ }),
+  [
+   items,
+   hydrated,
+   refresh,
+   addUpload,
+   removeItem,
+   tryAddGeneratedFromSpec,
+   tryAddGeneratedImage,
+   upsertWorkspaceExport,
+   exportAll,
+  ],
+ );
 
   return (
     <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>
