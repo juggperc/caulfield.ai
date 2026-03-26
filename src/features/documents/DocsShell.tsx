@@ -572,7 +572,7 @@ const assistantInputDisabled =
                     : "Ask to edit the document…"
                 }
                 rows={2}
-                disabled={workspaceTab === "docs" && !selectedId}
+                disabled={false}
                 className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent text-[0.9375rem] leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-50"
                 aria-label="Workspace assistant input"
               />
