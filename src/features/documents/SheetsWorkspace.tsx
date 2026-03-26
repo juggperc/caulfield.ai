@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useSheets } from "./sheets-context";
+import { FormulaGuide } from "./FormulaGuide";
 
 const colLabel = (c: number): string => {
   let s = "";
@@ -233,6 +234,7 @@ export const SheetsWorkspace = () => {
                 <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Formula
                 </span>
+                <FormulaGuide />
                 <Input
                   value={activeCellValue}
                   onChange={(e) => {

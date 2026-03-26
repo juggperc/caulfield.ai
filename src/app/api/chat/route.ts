@@ -642,6 +642,18 @@ ${truncate(preview, 14_000)}`;
 - **${s.title}** — \`id\` \`${s.id}\`, revision ${s.revision}`;
       }
     }
+    docsSystem += `
+
+### Supported formulas
+- **Math:** SUM, AVERAGE, MIN, MAX, COUNT, COUNTA, ROUND, ABS, INT, SQRT, POWER, EXP, LN, LOG, LOG10, PI
+- **Text:** LEN, TRIM, LOWER, UPPER, PROPER, LEFT, RIGHT, MID, CONCATENATE, CONCAT, SUBSTITUTE, SEARCH, FIND, VALUE
+- **Logic:** IF, IFERROR, AND, OR, NOT, ISBLANK, ISNUMBER, ISTEXT, ISERROR
+- **Date:** TODAY, NOW, DAYS, DATEDIF
+- **Lookup:** VLOOKUP, INDEX, MATCH
+- Syntax: start with = (e.g., =SUM(A1:B10))
+- Cell refs: A1, range A1:B10, absolute $A$1
+- Use sheets_suggest_formula tool for formula help
+  `;
   }
 
   const system = isDocsMode ? docsSystem : chatSystem;
